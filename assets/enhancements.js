@@ -54,7 +54,7 @@
   const attached = new WeakSet();
 
   function isActionTarget(target) {
-    return !!target.closest('button, a, input, [role="button"], .gallery-action');
+    return !!target.closest('.gallery-action, a, input, select, textarea');
   }
 
   function attachRail(rail) {
@@ -69,6 +69,24 @@
     let wheelRaf = 0;
     let wheelTarget = rail.scrollLeft;
     let suppressUntil = 0;
+    let elasticRaf = 0;
+
+    const setElastic = value => {
+      cancelAnimationFrame(elasticRaf);
+      rail.style.transition = 'none';
+      rail.style.transform = `translate3d(${value}px,0,0)`;
+    };
+    const releaseElastic = () => {
+      cancelAnimationFrame(elasticRaf);
+      rail.style.transition = 'transform 460ms cubic-bezier(.18,.82,.22,1)';
+      rail.style.transform = 'translate3d(0,0,0)';
+      elasticRaf = requestAnimationFrame(() => {
+        setTimeout(() => {
+          rail.style.transition = '';
+          rail.style.transform = '';
+        }, 480);
+      });
+    };
 
     const maxScroll = () => Math.max(0, rail.scrollWidth - rail.clientWidth);
     const clamp = value => Math.max(0, Math.min(maxScroll(), value));
@@ -99,7 +117,18 @@
       drag.velocity = (event.clientX - drag.lastX) / dt * 16;
       drag.lastX = event.clientX;
       drag.lastT = now;
-      rail.scrollLeft = clamp(drag.startScroll - dx);
+      const desired = drag.startScroll - dx;
+      const max = maxScroll();
+      rail.scrollLeft = clamp(desired);
+      let elastic = 0;
+      if (desired < 0) {
+        const excess = -desired;
+        elastic = Math.min(76, Math.pow(excess, .72) * 1.7);
+      } else if (desired > max) {
+        const excess = desired - max;
+        elastic = -Math.min(76, Math.pow(excess, .72) * 1.7);
+      }
+      setElastic(elastic);
       event.preventDefault();
     }, true);
 
@@ -108,6 +137,7 @@
       const state = drag;
       drag = null;
       rail.classList.remove('is-horizontal-dragging');
+      releaseElastic();
       if (!state.moved) return;
       suppressUntil = performance.now() + 180;
       let velocity = -state.velocity * .5;
@@ -134,7 +164,16 @@
       if (!delta) return;
       event.preventDefault();
       event.stopPropagation();
-      wheelTarget = clamp(wheelTarget + delta * .85);
+      const rawTarget = wheelTarget + delta * .85;
+      const max = maxScroll();
+      wheelTarget = clamp(rawTarget);
+      if ((rawTarget < 0 && rail.scrollLeft <= .5) || (rawTarget > max && rail.scrollLeft >= max - .5)) {
+        const excess = rawTarget < 0 ? -rawTarget : rawTarget - max;
+        const direction = rawTarget < 0 ? 1 : -1;
+        setElastic(direction * Math.min(58, 10 + Math.pow(excess, .68) * 1.15));
+        clearTimeout(rail.__galleryEdgeTimer);
+        rail.__galleryEdgeTimer = setTimeout(releaseElastic, 90);
+      }
       if (wheelRaf) return;
       const tick = () => {
         const diff = wheelTarget - rail.scrollLeft;

@@ -6721,3 +6721,69 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
     padding:14px!important;
   }
 }
+
+/* 2026-07-14 — iPad portrait Gallery drawer sizing matched to the 3-column cabinet grid. */
+@media (hover:none) and (pointer:coarse) and (min-width:721px) and (max-width:1024px) and (orientation:portrait){
+  .app-shell:has(.gallery-view) .gallery-view{
+    --gallery-cols:3!important;
+    --gallery-gap:16px!important;
+    --gallery-side-left:24px!important;
+    --gallery-side-right:24px!important;
+    --gallery-card-w:calc((100vw - 48px - 32px) / 3)!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-behind-drawer{
+    padding:18px 0 22px!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-behind-drawer>.gallery-drawer-grid{
+    gap:16px!important;
+    padding-left:24px!important;
+    padding-right:24px!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-behind-drawer>.gallery-drawer-grid>.gallery-drawer-card{
+    flex-basis:var(--gallery-card-w)!important;
+    width:var(--gallery-card-w)!important;
+    min-width:var(--gallery-card-w)!important;
+    max-width:var(--gallery-card-w)!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-label{
+    left:10px!important;
+    right:10px!important;
+    bottom:10px!important;
+    gap:8px!important;
+    padding:10px 10px 9px!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-copy{
+    gap:3px!important;
+    padding-right:32px!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-copy small{
+    font-size:8px!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-copy strong{
+    font-size:10px!important;
+    line-height:1.3!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-copy span,
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-copy time{
+    font-size:8px!important;
+    line-height:1.25!important;
+  }
+  .app-shell:has(.gallery-view) .gallery-drawer-card .gallery-action{
+    right:8px!important;
+    width:28px!important;
+    height:28px!important;
+  }
+}
+
+/* Saved Gallery rail: finite edge resistance on every layout. */
+.gallery-view.gallery-pull-shell .gallery-behind-drawer>.gallery-drawer-grid{
+  will-change:transform!important;
+  overscroll-behavior-x:none!important;
+}
+
+/* 2026-07-14 — stronger, clearly visible saved-gallery edge resistance. */
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid{
+  transform-origin:center center!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+}
