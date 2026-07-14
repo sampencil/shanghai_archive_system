@@ -6787,3 +6787,8 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
   backface-visibility:hidden!important;
   -webkit-backface-visibility:hidden!important;
 }
+
+/* SVG brand logo: independent from local fonts */
+.brand{display:flex;align-items:center;height:42px;font-size:0;line-height:1}
+.brand img{display:block;width:152px;height:15px;max-width:none;object-fit:contain}
+@media(max-width:620px){.brand{top:17px;height:24px}.brand img{width:122px;height:auto}}

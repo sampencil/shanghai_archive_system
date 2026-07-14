@@ -16,7 +16,7 @@
 <script>
 window.__startShanghaiApp=function(){
   if(window.__shanghaiStarted)return; window.__shanghaiStarted=true;
-  ["assets/app.js?v=20260714-ipad-left-opaque","assets/mobile-calendar-final.js?v=ipad-left-opaque","assets/enhancements.js?v=20260714-edge2","assets/amap-integration.js?v=ipad-left-opaque"].reduce((p,src)=>p.then(()=>new Promise((ok,fail)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=fail;document.body.appendChild(s)})),Promise.resolve());
+  ["assets/app.js?v=20260714-route-logo","assets/mobile-calendar-final.js?v=ipad-left-opaque","assets/enhancements.js?v=20260714-edge2","assets/amap-integration.js?v=ipad-left-opaque"].reduce((p,src)=>p.then(()=>new Promise((ok,fail)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=fail;document.body.appendChild(s)})),Promise.resolve());
 };
 </script>
 <script src="assets/supabase-loader.js"></script>
