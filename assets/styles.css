@@ -6315,3 +6315,93 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
     transform:translate3d(-50%,-50%,0)!important;
   }
 }
+
+/* 2026-07-14 — one shared empty-date layer for Object and Gallery on every device.
+   The message is drawn by .main-stage, so switching views cannot change its coordinates. */
+.main-stage:has(.objects-view > .empty-date-message) .objects-view > .empty-date-message,
+.main-stage:has(.gallery-view .empty-date-message) .gallery-view .empty-date-message{
+  display:none!important;
+}
+.app-shell:has(.gallery-view .empty-date-message)::before{
+  content:none!important;
+  display:none!important;
+}
+.main-stage:has(.objects-view > .empty-date-message)::after,
+.main-stage:has(.gallery-view .empty-date-message)::after{
+  content:"今日无更多展览，不如看看其他日期";
+  position:absolute!important;
+  inset:0!important;
+  z-index:35!important;
+  display:grid!important;
+  place-items:center!important;
+  width:100%!important;
+  height:100%!important;
+  padding:24px!important;
+  color:rgba(255,255,255,.62)!important;
+  font-size:13px!important;
+  font-weight:400!important;
+  line-height:1.6!important;
+  letter-spacing:.02em!important;
+  text-align:center!important;
+  pointer-events:none!important;
+  transform:none!important;
+}
+
+/* 2026-07-14 — iPad portrait Map: no blur sheet behind the whole left scroller.
+   Glass/blur belongs to each individual rectangular row only. */
+@media (hover:none) and (pointer:coarse) and (min-width:721px) and (max-width:1024px) and (orientation:portrait){
+  .app-shell:has(.map-view) .map-view .zone-list{
+    background:transparent!important;
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+    filter:none!important;
+    box-shadow:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .zone-group{
+    background:transparent!important;
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+    filter:none!important;
+    box-shadow:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .zone-group>button,
+  .app-shell:has(.map-view) .map-view .zone-exhibitions>button,
+  .app-shell:has(.map-view) .map-view .zone-empty{
+    background:rgba(3,15,24,.76)!important;
+    -webkit-backdrop-filter:blur(11px) saturate(1.04)!important;
+    backdrop-filter:blur(11px) saturate(1.04)!important;
+  }
+}
+
+/* 2026-07-14 — iPad portrait Map left list: no blur, full-width exhibition rows. */
+@media (hover:none) and (pointer:coarse) and (min-width:721px) and (max-width:1024px) and (orientation:portrait){
+  /* Remove backdrop blur from the entire left list and from every row. */
+  .app-shell:has(.map-view) .map-view .zone-list,
+  .app-shell:has(.map-view) .map-view .zone-group,
+  .app-shell:has(.map-view) .map-view .zone-group>button,
+  .app-shell:has(.map-view) .map-view .zone-exhibitions,
+  .app-shell:has(.map-view) .map-view .zone-exhibitions>button,
+  .app-shell:has(.map-view) .map-view .zone-empty{
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+    filter:none!important;
+  }
+
+  /* Exhibition rows must touch both sides of their expanded region container. */
+  .app-shell:has(.map-view) .map-view .zone-exhibitions{
+    box-sizing:border-box!important;
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    gap:0!important;
+  }
+  .app-shell:has(.map-view) .map-view .zone-exhibitions>button,
+  .app-shell:has(.map-view) .map-view .zone-empty{
+    box-sizing:border-box!important;
+    display:grid!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    border-radius:0!important;
+  }
+}
