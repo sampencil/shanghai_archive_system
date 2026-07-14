@@ -22,13 +22,13 @@
   // 全览相较旧版约放大 35%。高德 zoom 每增加 1 级约放大 2 倍，
   // 因此旧 11.65 + log2(1.35) ≈ 12.08。
   const OVERVIEW_ZOOM = 13.4;
-  const REGION_ZOOM = 13.9;
+  const REGION_ZOOM = 14.3;
   const OVERVIEW_CENTER = [121.48030, 31.22820];
   const REGION_MOVE_DURATION = 135;
   const OVERVIEW_MOVE_DURATION = 155;
 
   // 地图缩放采用对数级别，因此物件尺寸也使用指数曲线跟随。
-  // REGION_ZOOM(13.9) 为 1 倍；OVERVIEW_ZOOM(12.8) 约为 0.76 倍，
+  // REGION_ZOOM(14.3) 为 1 倍；OVERVIEW_ZOOM(12.8) 约为 0.76 倍，
   // 比单纯使用 zoom 比例更能拉开全览与区域视图的层次。
   const OBJECT_SCALE_EXPONENT = 0.65;
   const OBJECT_SCALE_MIN = 0.56;
