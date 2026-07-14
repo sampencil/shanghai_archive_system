@@ -6524,3 +6524,43 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
     backdrop-filter:none!important;
   }
 }
+
+/* 2026-07-14 — iPad portrait Map: make the left exhibition rows fully opaque,
+   matching the visually solid phone list while keeping all existing geometry. */
+@media (hover:none) and (pointer:coarse) and (min-width:721px) and (max-width:1024px) and (orientation:portrait){
+  .app-shell:has(.map-view) .map-view .zone-group{
+    background:#071923!important;
+  }
+  .app-shell:has(.map-view) .map-view .zone-group>button{
+    background:#071923!important;
+  }
+  .app-shell:has(.map-view) .map-view .zone-exhibitions>button,
+  .app-shell:has(.map-view) .map-view .zone-empty{
+    background:#061620!important;
+  }
+}
+
+/* 2026-07-14 — mobile Map notebook: hide every visual vertical scroll indicator.
+   Scrolling and touch momentum remain enabled; only the scrollbar chrome is removed. */
+@media (max-width:720px){
+  .app-shell:has(.map-view) .map-view .map-notes-preview,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll{
+    scrollbar-width:none!important;
+    scrollbar-color:transparent transparent!important;
+    -ms-overflow-style:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-preview::-webkit-scrollbar,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll::-webkit-scrollbar,
+  .app-shell:has(.map-view) .map-view .map-notes-preview *::-webkit-scrollbar,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll *::-webkit-scrollbar{
+    width:0!important;
+    height:0!important;
+    display:none!important;
+    background:transparent!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-preview::-webkit-scrollbar-thumb,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll::-webkit-scrollbar-thumb{
+    background:transparent!important;
+    border:0!important;
+  }
+}
