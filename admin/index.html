@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>上海城中物志 · 资产控制台</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260714-bulk-data">
 </head>
 <body>
 <div id="login" class="login">
@@ -61,9 +61,10 @@
   </main>
 
   <main id="sheetView" class="view-panel sheet-panel" hidden>
-    <div class="sheet-toolbar"><div><strong>全部展品</strong><span id="sheetCount"></span></div><div><button id="addSheetRow">＋ 新增一行</button><button id="saveAllRows" class="primary">保存全部修改</button></div></div>
+    <div class="sheet-toolbar"><div><strong>全部展品</strong><span id="sheetCount"></span></div><div class="toolbar-actions"><button id="addSheetRow">＋ 新增一行</button><button id="bulkAddAssets">批量新增</button><button id="importAssets">导入数据</button><button id="exportSelectedAssets">导出选中</button><button id="exportAllAssets">导出全部</button><button id="saveAllRows" class="primary">保存全部修改</button></div></div>
+    <input id="assetImportFile" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" hidden>
     <div class="sheet-wrap"><table id="assetTable"><thead><tr>
-      <th class="sticky-col">操作</th><th>系统 ID</th><th>区域</th><th>权重</th><th>展览名称</th><th>地点</th><th>坐标来源</th><th>展品名称</th><th>开始日期</th><th>结束日期</th><th>经度</th><th>纬度</th><th>图片地址</th><th>状态</th><th>排序</th><th>描述</th>
+      <th class="select-col"><input id="selectAllAssets" type="checkbox" aria-label="全选"></th><th class="sticky-col">操作</th><th>系统 ID</th><th>区域</th><th>权重</th><th>展览名称</th><th>地点</th><th>坐标来源</th><th>展品名称</th><th>开始日期</th><th>结束日期</th><th>经度</th><th>纬度</th><th>图片地址</th><th>状态</th><th>排序</th><th>描述</th>
     </tr></thead><tbody></tbody></table></div><p id="sheetMsg"></p>
   </main>
 
@@ -73,9 +74,28 @@
   </main>
 
   <main id="venuesView" class="view-panel venues-panel" hidden>
-    <div class="venues-head"><div><h2>地点库</h2><p>统一管理地点名称与经纬度，并查看每个地点下关联的全部展览。</p></div><button id="addVenue">＋ 新增地点</button></div>
+    <div class="venues-head"><div><h2>地点库</h2><p>统一管理地点名称与经纬度，并查看每个地点下关联的全部展览。</p></div><div class="toolbar-actions"><button id="addVenue">＋ 新增地点</button><button id="bulkAddVenues">批量新增</button><button id="importVenues">导入数据</button><button id="exportAllVenues">导出全部</button></div></div>
+    <input id="venueImportFile" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" hidden>
     <div class="venues-layout"><div id="venuesList" class="venues-list"></div><aside id="venueExhibitions" class="venue-exhibitions"><div class="empty-state">选择一个地点查看关联展览</div></aside></div><p id="venueMsg"></p>
   </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script>
+<dialog id="bulkDialog" class="data-dialog">
+  <form method="dialog" class="dialog-card" id="bulkForm">
+    <header><div><h2 id="bulkTitle">批量新增</h2><p id="bulkHint"></p></div><button value="cancel" class="dialog-close" aria-label="关闭">×</button></header>
+    <textarea id="bulkText" placeholder="请粘贴带表头的制表符表格 TSV" spellcheck="false"></textarea>
+    <pre id="bulkExample" class="format-example"></pre>
+    <p id="bulkMsg" class="dialog-msg"></p>
+    <footer><button value="cancel">取消</button><button type="button" id="confirmBulk" class="primary">新增</button></footer>
+  </form>
+</dialog>
+<dialog id="importDialog" class="data-dialog">
+  <form method="dialog" class="dialog-card">
+    <header><div><h2>导入数据</h2><p id="importFileName"></p></div><button value="cancel" class="dialog-close" aria-label="关闭">×</button></header>
+    <div id="importSummary" class="import-summary"></div>
+    <div id="importErrors" class="import-errors"></div>
+    <footer><button value="cancel">取消</button><button type="button" id="confirmImport" class="primary">确认更新</button></footer>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="config.js"></script><script src="app.js?v=20260714-bulk-data"></script>
 </body></html>

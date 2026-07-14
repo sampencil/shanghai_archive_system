@@ -3,3 +3,21 @@
 [hidden]{display:none!important}
 .venue-picker-block{display:grid;gap:10px}.venue-picker{display:grid;grid-template-columns:1fr auto;gap:8px}.venue-picker button,.quick-venue button,.venues-head button,.venue-row button{background:#103b50;color:#d9f8ff;border:1px solid #28667c;padding:10px 13px;cursor:pointer}.quick-venue{display:grid;grid-template-columns:1.5fr 1fr 1fr auto auto;gap:8px;align-items:end;padding:12px;border:1px solid #28667c;background:#061d2e}.coordinate-source small{min-height:16px;color:#55bfd0;letter-spacing:0}.coordinate-source.is-manual small{color:#f1bf77}.venues-panel{overflow:auto;padding:0 24px 40px}.venues-head{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid #17475a}.venues-head h2{margin:0 0 6px}.venues-head p{margin:0;color:#7fb6c5;font-size:13px}.venues-layout{display:grid;grid-template-columns:minmax(560px,1.35fr) minmax(320px,.65fr);gap:18px;margin-top:20px;align-items:start}.venues-list{display:grid;gap:10px}.venue-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 90px auto;gap:10px;align-items:end;padding:14px;background:#071f31;border:1px solid #17475a}.venue-row.is-selected{border-color:#2cc9df;background:#082b40}.venue-row-actions{display:flex;gap:6px}.venue-row .remove{color:#ff9ba7;border-color:#673845;background:transparent}.venue-exhibitions{position:sticky;top:18px;max-height:calc(100vh - 180px);overflow:auto;border:1px solid #17475a;background:#071f31}.venue-exhibitions header{height:auto;padding:16px 18px;display:block}.venue-exhibitions header h3{margin:0 0 5px}.venue-exhibitions header p{margin:0;color:#7fb6c5;font-size:12px}.venue-exhibition-item{padding:14px 18px;border-top:1px solid #123b4c}.venue-exhibition-item strong{display:block;font-size:13px}.venue-exhibition-item span{display:block;color:#7fb6c5;font-size:11px;margin-top:5px}.empty-state{padding:24px;color:#739baa}.sheet-wrap .coord-source{min-width:165px}
 @media(max-width:900px){.venues-layout{grid-template-columns:1fr}.venue-exhibitions{position:static;max-height:none}.venue-row{grid-template-columns:1fr 1fr}.quick-venue{grid-template-columns:1fr 1fr}.venue-picker{grid-template-columns:1fr}.venue-picker button{width:100%}}
+
+/* Bulk data tools */
+.toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.select-col{width:42px;min-width:42px;text-align:center}
+.select-col input{width:16px;height:16px;accent-color:#111}
+.data-dialog{border:0;padding:0;background:transparent;max-width:min(760px,calc(100vw - 32px));width:100%}
+.data-dialog::backdrop{background:rgba(0,0,0,.42);backdrop-filter:blur(5px)}
+.dialog-card{background:#fff;border:1px solid #111;border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.24);overflow:hidden}
+.dialog-card header,.dialog-card footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px}
+.dialog-card header{border-bottom:1px solid #ddd}.dialog-card footer{border-top:1px solid #ddd;justify-content:flex-end}
+.dialog-card h2{margin:0 0 4px;font-size:18px}.dialog-card p{margin:0;color:#666;font-size:13px}
+.dialog-close{font-size:24px;line-height:1;padding:2px 8px;border:0;background:transparent}
+#bulkText{display:block;width:calc(100% - 40px);min-height:260px;margin:20px;padding:14px;border:1px solid #bbb;border-radius:8px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;resize:vertical}
+.format-example{margin:0 20px 18px;padding:12px;max-height:130px;overflow:auto;background:#f4f4f2;border-radius:7px;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
+.dialog-msg{padding:0 20px 16px!important;color:#b42318!important}
+.import-summary{display:grid;gap:10px;margin:20px;padding:18px;background:#f5f5f2;border-radius:8px}.import-summary strong{font-size:17px}.import-summary span{font-size:14px}
+.import-errors{margin:0 20px 20px;color:#b42318;font-size:13px;overflow-wrap:anywhere}
+@media(max-width:760px){.sheet-toolbar,.venues-head{align-items:flex-start}.toolbar-actions{justify-content:flex-start}.data-dialog{max-width:calc(100vw - 20px)}#bulkText{min-height:220px}}

@@ -152,7 +152,7 @@ function weightSelect(value){return `<select data-field="exhibition_weight"><opt
 function statusSelect(value){return `<select data-field="status"><option value="draft" ${value==='draft'?'selected':''}>草稿</option><option value="published" ${value==='published'?'selected':''}>已发布</option></select>`}
 function inputCell(field,value,type='text',cls=''){return `<input class="${cls}" data-field="${field}" type="${type}" ${type==='number'?'step="any"':''} value="${escapeHtml(value??'')}">`}
 function rowHtml(row,isNew=false){
-  return `<tr data-id="${row.id||''}" data-new="${isNew?'true':'false'}"><td class="sticky-col"><div class="row-actions"><button class="save-row">保存</button><button class="remove">删除</button></div></td>
+  return `<tr data-id="${row.id||''}" data-new="${isNew?'true':'false'}"><td class="select-col"><input class="row-select" type="checkbox" aria-label="选择此行"></td><td class="sticky-col"><div class="row-actions"><button class="save-row">保存</button><button class="remove">删除</button></div></td>
   <td>${inputCell('system_id',row.system_id)}</td><td>${regionSelect(row.region||regions[0]?.name||'')}</td><td>${weightSelect(row.exhibition_weight)}</td>
   <td>${inputCell('exhibition_title',row.exhibition_title,'text','cell-wide')}</td><td>${venueSelect(row.venue_id||venues[0]?.id||'')}</td><td>${coordinateSourceSelect(row.use_venue_coordinates)}</td><td>${inputCell('object_name',row.object_name,'text','cell-wide')}</td>
   <td>${inputCell('start_date',row.start_date,'date')}</td><td>${inputCell('end_date',row.end_date,'date')}</td><td>${inputCell('longitude',row.longitude,'number')}</td><td>${inputCell('latitude',row.latitude,'number')}</td>
@@ -219,3 +219,100 @@ function renderVenueExhibitions(){
 }
 
 boot();
+
+// ===== Simple bulk data tools: export / import by immutable ID / TSV batch add =====
+const ASSET_EXPORT_COLUMNS=[
+  ['ID','id'],['系统ID','system_id'],['区域','region'],['展览权重','exhibition_weight'],['展览名称','exhibition_title'],['地点','venue'],['地点ID','venue_id'],['坐标来源','use_venue_coordinates'],['展品名称','object_name'],['开始日期','start_date'],['结束日期','end_date'],['经度','longitude'],['纬度','latitude'],['图片地址','image_url'],['状态','status'],['排序','sort_order'],['描述','description']
+];
+const VENUE_EXPORT_COLUMNS=[['ID','id'],['地点名称','name'],['经度','longitude'],['纬度','latitude'],['排序','sort_order']];
+const ASSET_HEADER_MAP=Object.fromEntries(ASSET_EXPORT_COLUMNS.flatMap(([zh,key])=>[[zh,key],[key,key]]));
+const VENUE_HEADER_MAP=Object.fromEntries(VENUE_EXPORT_COLUMNS.flatMap(([zh,key])=>[[zh,key],[key,key]]));
+let importState=null,bulkMode=null;
+
+function rowsToExport(data,columns){return data.map(row=>Object.fromEntries(columns.map(([label,key])=>[label,row[key]??''])))}
+function safeFileDate(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function exportXlsx(data,columns,name){
+  if(!data.length)return alert('没有可导出的数据');
+  if(!window.XLSX)return alert('Excel 组件未加载，请刷新后重试。');
+  const ws=XLSX.utils.json_to_sheet(rowsToExport(data,columns),{header:columns.map(c=>c[0])});
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'数据');XLSX.writeFile(wb,`${name}-${safeFileDate()}.xlsx`);
+}
+function selectedAssetRows(){
+  return [...document.querySelectorAll('#assetTable tbody tr')].filter(tr=>tr.querySelector('.row-select')?.checked).map(tr=>rows.find(r=>r.id===tr.dataset.id)).filter(Boolean);
+}
+function bindSelection(){
+  const all=$('selectAllAssets');if(!all)return;
+  all.checked=false;all.onchange=()=>document.querySelectorAll('#assetTable tbody .row-select').forEach(c=>c.checked=all.checked);
+}
+const originalRenderSheet=renderSheet;
+renderSheet=function(){originalRenderSheet();bindSelection()};
+
+$('exportAllAssets').onclick=()=>exportXlsx(rows,ASSET_EXPORT_COLUMNS,'展览数据');
+$('exportSelectedAssets').onclick=()=>{const selectedRows=selectedAssetRows();if(!selectedRows.length)return alert('请先勾选要导出的数据');exportXlsx(selectedRows,ASSET_EXPORT_COLUMNS,'选中展览数据')};
+$('exportAllVenues').onclick=()=>exportXlsx(venues,VENUE_EXPORT_COLUMNS,'地点库');
+
+function parseDelimited(text){
+  const normalized=String(text||'').replace(/^\uFEFF/,'').trim();if(!normalized)return [];
+  const first=normalized.split(/\r?\n/,1)[0];const delimiter=first.includes('\t')?'\t':',';
+  const lines=normalized.split(/\r?\n/).filter(line=>line.trim()!=='');
+  if(delimiter==='\t')return lines.map(line=>line.split('\t').map(v=>v.trim()));
+  return lines.map(line=>{const out=[];let cur='',quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(quoted&&line[i+1]==='"'){cur+='"';i++}else quoted=!quoted}else if(ch===','&&!quoted){out.push(cur.trim());cur=''}else cur+=ch}out.push(cur.trim());return out});
+}
+function tableToObjects(table){if(!table.length)return [];const headers=table[0].map(h=>String(h).trim());return table.slice(1).filter(r=>r.some(v=>String(v).trim()!=='')).map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]??''])))}
+async function readImportFile(file){
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='xlsx'||ext==='xls'){
+    const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+  }
+  return tableToObjects(parseDelimited(await file.text()));
+}
+function normalizeImportedRecord(record,map){const out={};for(const [header,value] of Object.entries(record)){const key=map[String(header).trim()];if(key)out[key]=value}return out}
+function openImport(kind,file,records){
+  const map=kind==='assets'?ASSET_HEADER_MAP:VENUE_HEADER_MAP;const source=kind==='assets'?rows:venues;
+  const normalized=records.map(r=>normalizeImportedRecord(r,map));const ids=normalized.map(r=>String(r.id||'').trim());
+  const duplicates=[...new Set(ids.filter((id,i)=>id&&ids.indexOf(id)!==i))];const known=new Set(source.map(r=>String(r.id)));
+  const valid=normalized.filter(r=>r.id&&known.has(String(r.id)));const unknown=normalized.filter(r=>!r.id||!known.has(String(r.id)));
+  importState={kind,valid,unknown,duplicates};
+  $('importFileName').textContent=file.name;
+  $('importSummary').innerHTML=`<strong>共读取 ${normalized.length} 条数据</strong><span>将更新：${duplicates.length?0:valid.length} 条</span><span>无法识别：${unknown.length} 条</span>`;
+  $('importErrors').textContent=duplicates.length?`发现重复 ID：${duplicates.join('、')}。已阻止导入。`:unknown.length?`无法识别的 ID：${unknown.map(r=>r.id||'（空 ID）').join('、')}`:'';
+  $('confirmImport').disabled=duplicates.length>0||valid.length===0;$('importDialog').showModal();
+}
+async function chooseImport(kind,fileInput){const file=fileInput.files[0];if(!file)return;try{openImport(kind,file,await readImportFile(file))}catch(err){alert('文件读取失败：'+err.message)}finally{fileInput.value=''}}
+$('importAssets').onclick=()=>$('assetImportFile').click();$('assetImportFile').onchange=()=>chooseImport('assets',$('assetImportFile'));
+$('importVenues').onclick=()=>$('venueImportFile').click();$('venueImportFile').onchange=()=>chooseImport('venues',$('venueImportFile'));
+
+function valueForImport(key,value){
+  if(value===''||value==null)return undefined;
+  if(['longitude','latitude','sort_order'].includes(key)){const n=Number(value);return Number.isFinite(n)?n:undefined}
+  if(key==='use_venue_coordinates')return value===true||String(value).toLowerCase()==='true'||String(value)==='引用地点坐标';
+  return value;
+}
+$('confirmImport').onclick=async()=>{
+  if(!importState)return;const {kind,valid}=importState;const table=kind==='assets'?'assets':'venues';const ignored=new Set(['id','image_url']);
+  $('confirmImport').disabled=true;$('confirmImport').textContent='正在更新…';let updated=0;
+  for(const record of valid){const payload={};for(const [key,raw] of Object.entries(record)){if(ignored.has(key))continue;const value=valueForImport(key,raw);if(value!==undefined)payload[key]=value}
+    if(kind==='assets'&&payload.venue){const venue=venueByName(payload.venue);if(venue){payload.venue_id=venue.id;payload.venue=venue.name}}
+    if(Object.keys(payload).length){const {error}=await sb.from(table).update(payload).eq('id',record.id);if(error){alert(`ID ${record.id} 更新失败：${error.message}`);continue}updated++}
+  }
+  $('importDialog').close();$('confirmImport').textContent='确认更新';$('confirmImport').disabled=false;importState=null;await loadAll();alert(`已更新 ${updated} 条数据`);
+};
+
+const ASSET_BULK_EXAMPLE=`系统ID\t区域\t展览权重\t展览名称\t地点\t坐标来源\t展品名称\t开始日期\t结束日期\t经度\t纬度\t状态\t排序\t描述\nart-101\t外滩\tA\t示例展览\t明圆美术馆\t引用地点坐标\t示例作品\t2026-07-14\t2026-08-14\t\t\tpublished\t1\t示例描述`;
+const VENUE_BULK_EXAMPLE=`地点名称\t经度\t纬度\t排序\n明圆美术馆\t121.4701\t31.2102\t6\n洞—当代艺术平台\t121.4830\t31.2620\t7`;
+function openBulk(kind){bulkMode=kind;$('bulkTitle').textContent=kind==='assets'?'批量新增展览数据':'批量新增地点';$('bulkHint').textContent='只支持带表头的制表符表格 TSV。不要添加 ID。';$('bulkExample').textContent=kind==='assets'?ASSET_BULK_EXAMPLE:VENUE_BULK_EXAMPLE;$('bulkText').value='';$('bulkMsg').textContent='';$('confirmBulk').textContent='检查数据';$('bulkDialog').showModal();setTimeout(()=>$('bulkText').focus(),30)}
+$('bulkAddAssets').onclick=()=>openBulk('assets');$('bulkAddVenues').onclick=()=>openBulk('venues');
+$('bulkText').oninput=()=>{const count=Math.max(0,parseDelimited($('bulkText').value).length-1);$('confirmBulk').textContent=count?`新增 ${count} 条`:'检查数据'};
+$('confirmBulk').onclick=async()=>{
+  const objects=tableToObjects(parseDelimited($('bulkText').value));if(!objects.length)return $('bulkMsg').textContent='没有读取到数据，请确认第一行是表头。';
+  const map=bulkMode==='assets'?ASSET_HEADER_MAP:VENUE_HEADER_MAP;const normalized=objects.map(r=>normalizeImportedRecord(r,map));
+  if(normalized.some(r=>r.id))return $('bulkMsg').textContent='批量新增不能包含 ID。修改已有数据请使用“导入数据”。';
+  let payloads;
+  if(bulkMode==='venues')payloads=normalized.map((r,i)=>({name:String(r.name||'').trim(),longitude:numOrNull(r.longitude),latitude:numOrNull(r.latitude),sort_order:Number(r.sort_order||i)}));
+  else payloads=normalized.map((r,i)=>{const venue=venueByName(r.venue);return normalizePayload({...r,venue_id:venue?.id||'',venue:venue?.name||r.venue,use_venue_coordinates:r.use_venue_coordinates===''||r.use_venue_coordinates==null?true:r.use_venue_coordinates,status:r.status||'draft',sort_order:r.sort_order||i})});
+  const invalid=bulkMode==='venues'?payloads.filter(p=>!p.name):payloads.filter(p=>!p.system_id||!p.exhibition_title||!p.object_name||!p.venue_id||!p.start_date||!p.end_date);
+  if(invalid.length)return $('bulkMsg').textContent=`有 ${invalid.length} 条缺少必填字段，未新增。`;
+  $('confirmBulk').disabled=true;$('confirmBulk').textContent='正在新增…';const {error}=await sb.from(bulkMode==='assets'?'assets':'venues').insert(payloads);$('confirmBulk').disabled=false;
+  if(error){$('confirmBulk').textContent=`新增 ${payloads.length} 条`;$('bulkMsg').textContent=error.message;return}
+  $('bulkDialog').close();await loadAll();alert(`已新增 ${payloads.length} 条数据`);
+};
