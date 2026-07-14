@@ -6564,3 +6564,160 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
     border:0!important;
   }
 }
+
+/* 2026-07-14 — rebased from Mobile-Map-Notebook-No-Scrollbar.
+   Only requested additions:
+   1) iPad portrait Gallery = 3 columns.
+   2) Desktop + iPad landscape Map notebook = locked header + inner scroll,
+      while preserving this base version's original row visuals. */
+
+/* iPad portrait only: three cabinets per row. */
+@media (hover:none) and (pointer:coarse) and (min-width:721px) and (max-width:1024px) and (orientation:portrait){
+  .app-shell:has(.gallery-view) .gallery-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:20px!important;
+    padding-left:24px!important;
+    padding-right:24px!important;
+  }
+}
+
+/* Desktop + iPad landscape only. */
+@media (hover:hover) and (pointer:fine),
+       (hover:none) and (pointer:coarse) and (min-width:721px) and (max-width:1366px) and (orientation:landscape){
+  .app-shell:has(.map-view) .map-view .map-notes-preview{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:min(62dvh,560px)!important;
+    padding:0!important;
+    overflow:hidden!important;
+    overscroll-behavior:none!important;
+    -webkit-overflow-scrolling:auto!important;
+  }
+
+  .app-shell:has(.map-view) .map-view .map-notes-preview>strong{
+    position:relative!important;
+    inset:auto!important;
+    z-index:20!important;
+    flex:0 0 40px!important;
+    width:100%!important;
+    height:40px!important;
+    min-height:40px!important;
+    max-height:40px!important;
+    margin:0!important;
+    padding:0 14px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    line-height:1!important;
+    transform:none!important;
+    translate:none!important;
+    pointer-events:none!important;
+    user-select:none!important;
+    -webkit-user-select:none!important;
+    touch-action:none!important;
+  }
+
+  .app-shell:has(.map-view) .map-view .map-notes-scroll{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:column!important;
+    flex:0 1 auto!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:calc(min(62dvh,560px) - 40px)!important;
+    margin:0!important;
+    padding:0!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain!important;
+    overscroll-behavior-x:none!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y!important;
+    scrollbar-width:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-scroll::-webkit-scrollbar{
+    display:none!important;
+    width:0!important;
+    height:0!important;
+  }
+
+  /* Exact row visuals from the requested base version, remapped to the new wrapper. */
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button{
+    box-sizing:border-box!important;
+    position:relative!important;
+    flex:0 0 54px!important;
+    width:100%!important;
+    height:54px!important;
+    min-height:54px!important;
+    max-height:54px!important;
+    margin:0!important;
+    padding:8px 14px!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    align-content:center!important;
+    justify-items:start!important;
+    gap:3px!important;
+    border:0!important;
+    border-left:0!important;
+    border-right:0!important;
+    border-bottom:1px solid rgba(34,226,238,.09)!important;
+    border-radius:0!important;
+    color:#fff!important;
+    background:linear-gradient(90deg,rgba(18,109,121,.18),rgba(5,25,35,.86))!important;
+    box-shadow:none!important;
+    text-align:left!important;
+    appearance:none!important;
+    -webkit-appearance:none!important;
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+    transform:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button::after{
+    content:none!important;
+    display:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button:hover,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button:active,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button:focus{
+    background:linear-gradient(90deg,rgba(36,188,198,.24),rgba(5,29,39,.94))!important;
+    box-shadow:none!important;
+    transform:none!important;
+    outline:none!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button>strong,
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button>span{
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    text-align:left!important;
+    line-height:1.25!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button>strong{
+    color:#f2fbfc!important;
+    font-size:11px!important;
+    font-weight:600!important;
+  }
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>button>span{
+    color:rgba(213,239,241,.52)!important;
+    font-size:9px!important;
+  }
+
+  .app-shell:has(.map-view) .map-view .map-notes-scroll>.map-notes-empty{
+    display:block!important;
+    flex:0 0 auto!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:14px!important;
+  }
+}
