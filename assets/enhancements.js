@@ -48,148 +48,157 @@
   new MutationObserver(()=>requestAnimationFrame(run)).observe(document.documentElement,{childList:true,subtree:true});window.addEventListener('load',run);
 })();
 
-/* 2026-07-12 — finite saved-gallery rail with separated drag/click behavior */
+/* 2026-07-15 — visible Gallery saved-rail edge resistance on every device. */
 (() => {
   'use strict';
   const attached = new WeakSet();
 
-  function isActionTarget(target) {
-    return !!target.closest('.gallery-action, a, input, select, textarea');
-  }
+  const actionTarget = target => !!target.closest?.('.gallery-action, a, input, select, textarea');
 
-  function attachRail(rail) {
-    if (!rail || attached.has(rail)) return;
+  function attach(rail){
+    if(!rail || attached.has(rail)) return;
     attached.add(rail);
-    rail.querySelectorAll('.is-loop-clone').forEach(node => node.remove());
-    rail.dataset.loopReady = '0';
-    rail.classList.remove('is-loop-ready');
 
-    let drag = null;
-    let coastRaf = 0;
-    let wheelRaf = 0;
-    let wheelTarget = rail.scrollLeft;
-    let suppressUntil = 0;
-    let elasticRaf = 0;
-
-    const setElastic = value => {
-      cancelAnimationFrame(elasticRaf);
-      rail.style.transition = 'none';
-      rail.style.transform = `translate3d(${value}px,0,0)`;
-    };
-    const releaseElastic = () => {
-      cancelAnimationFrame(elasticRaf);
-      rail.style.transition = 'transform 460ms cubic-bezier(.18,.82,.22,1)';
-      rail.style.transform = 'translate3d(0,0,0)';
-      elasticRaf = requestAnimationFrame(() => {
-        setTimeout(() => {
-          rail.style.transition = '';
-          rail.style.transform = '';
-        }, 480);
-      });
-    };
+    let state = null;
+    let clickLockUntil = 0;
+    let releaseTimer = 0;
+    let wheelTimer = 0;
 
     const maxScroll = () => Math.max(0, rail.scrollWidth - rail.clientWidth);
-    const clamp = value => Math.max(0, Math.min(maxScroll(), value));
+    const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+    const cards = () => [...rail.querySelectorAll(':scope > .gallery-drawer-card')];
 
-    rail.addEventListener('pointerdown', event => {
-      if (event.button !== undefined && event.button !== 0) return;
-      if (isActionTarget(event.target)) return;
-      cancelAnimationFrame(coastRaf);
-      drag = {
-        id: event.pointerId, startX: event.clientX, startY: event.clientY,
-        startScroll: rail.scrollLeft, moved: false, lastX: event.clientX,
-        lastT: performance.now(), velocity: 0
-      };
-    }, true);
-
-    rail.addEventListener('pointermove', event => {
-      if (!drag || drag.id !== event.pointerId) return;
-      const dx = event.clientX - drag.startX;
-      const dy = event.clientY - drag.startY;
-      if (!drag.moved) {
-        if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy) * 1.15) return;
-        drag.moved = true;
-        rail.setPointerCapture?.(event.pointerId);
-        rail.classList.add('is-horizontal-dragging');
-      }
-      const now = performance.now();
-      const dt = Math.max(8, now - drag.lastT);
-      drag.velocity = (event.clientX - drag.lastX) / dt * 16;
-      drag.lastX = event.clientX;
-      drag.lastT = now;
-      const desired = drag.startScroll - dx;
-      const max = maxScroll();
-      rail.scrollLeft = clamp(desired);
-      let elastic = 0;
-      if (desired < 0) {
-        const excess = -desired;
-        elastic = Math.min(76, Math.pow(excess, .72) * 1.7);
-      } else if (desired > max) {
-        const excess = desired - max;
-        elastic = -Math.min(76, Math.pow(excess, .72) * 1.7);
-      }
-      setElastic(elastic);
-      event.preventDefault();
-    }, true);
-
-    const finish = event => {
-      if (!drag || drag.id !== event.pointerId) return;
-      const state = drag;
-      drag = null;
-      rail.classList.remove('is-horizontal-dragging');
-      releaseElastic();
-      if (!state.moved) return;
-      suppressUntil = performance.now() + 180;
-      let velocity = -state.velocity * .5;
-      const coast = () => {
-        velocity *= .9;
-        const before = rail.scrollLeft;
-        rail.scrollLeft = clamp(before + velocity);
-        if (rail.scrollLeft === before || Math.abs(velocity) <= .16) return;
-        coastRaf = requestAnimationFrame(coast);
-      };
-      coastRaf = requestAnimationFrame(coast);
+    // Strong at the beginning, then progressively harder. Maximum visible pull: 68px.
+    const resistance = distance => {
+      const d = Math.max(0,distance);
+      return Math.min(68, d * .42 / (1 + d / 115));
     };
-    rail.addEventListener('pointerup', finish, true);
-    rail.addEventListener('pointercancel', finish, true);
-    rail.addEventListener('click', event => {
-      if (performance.now() < suppressUntil && !isActionTarget(event.target)) {
+
+    function setShift(px, animate=false){
+      clearTimeout(releaseTimer);
+      rail.classList.toggle('has-visible-edge-resistance', Math.abs(px) > .1);
+      rail.style.setProperty('--drawer-edge-shift', `${px}px`);
+      rail.style.setProperty('--drawer-edge-duration', animate ? '460ms' : '0ms');
+      // Apply to cards directly. This avoids Safari/native-scroll compositor swallowing
+      // a transform placed on the scrolling element itself.
+      cards().forEach(card => {
+        card.style.setProperty('translate', `${px}px 0`, 'important');
+        card.style.setProperty('transition', animate ? 'translate 460ms cubic-bezier(.16,.86,.2,1)' : 'none', 'important');
+      });
+    }
+
+    function release(){
+      setShift(0,true);
+      releaseTimer=setTimeout(()=>{
+        rail.classList.remove('has-visible-edge-resistance','is-edge-releasing');
+        cards().forEach(card=>{
+          card.style.removeProperty('translate');
+          card.style.removeProperty('transition');
+        });
+        rail.style.removeProperty('--drawer-edge-shift');
+        rail.style.removeProperty('--drawer-edge-duration');
+      },480);
+    }
+
+    function begin(event){
+      if(event.button !== undefined && event.button !== 0) return;
+      if(actionTarget(event.target)) return;
+      clearTimeout(releaseTimer);
+      state={
+        id:event.pointerId,
+        x:event.clientX,
+        y:event.clientY,
+        scroll:rail.scrollLeft,
+        dragging:false,
+        maxDistance:0
+      };
+      // Do not capture on pointerdown. Immediate capture makes a light tap on a
+      // card feel like a drag on iOS/Safari and can suppress the card click.
+    }
+
+    function move(event){
+      if(!state || state.id!==event.pointerId) return;
+      const dx=event.clientX-state.x;
+      const dy=event.clientY-state.y;
+      state.maxDistance=Math.max(state.maxDistance,Math.hypot(dx,dy));
+      if(!state.dragging){
+        // Keep ordinary taps forgiving. A gesture only becomes a drawer drag
+        // after a deliberate horizontal movement, not normal finger jitter.
+        if(Math.abs(dx)<12) return;
+        if(Math.abs(dx)<Math.abs(dy)*1.15) return;
+        state.dragging=true;
+        rail.classList.add('is-horizontal-dragging');
+        try{ rail.setPointerCapture(event.pointerId); }catch{}
+      }
+
+      const max=maxScroll();
+      const desired=state.scroll-dx;
+      rail.scrollLeft=clamp(desired,0,max);
+
+      let shift=0;
+      if(max<1){
+        // Short content: resistance exists in both directions even though native scroll cannot start.
+        shift=Math.sign(dx)*resistance(Math.abs(dx));
+      }else if(desired<0){
+        shift=resistance(-desired);
+      }else if(desired>max){
+        shift=-resistance(desired-max);
+      }
+      setShift(shift,false);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    function end(event){
+      if(!state || state.id!==event.pointerId) return;
+      const dragged=state.dragging && state.maxDistance>=12;
+      state=null;
+      rail.classList.remove('is-horizontal-dragging');
+      try{rail.releasePointerCapture(event.pointerId)}catch{}
+      release();
+      // Only suppress the synthetic click generated after a real drag. Keep the
+      // window short so the next intentional tap is never swallowed.
+      if(dragged) clickLockUntil=performance.now()+90;
+    }
+
+    rail.addEventListener('pointerdown',begin,true);
+    rail.addEventListener('pointermove',move,{capture:true,passive:false});
+    rail.addEventListener('pointerup',end,true);
+    rail.addEventListener('pointercancel',end,true);
+    rail.addEventListener('lostpointercapture',event=>{ if(state&&state.id===event.pointerId) end(event); },true);
+    rail.addEventListener('click',event=>{
+      if(performance.now()<clickLockUntil && !actionTarget(event.target)){
         event.preventDefault();
         event.stopImmediatePropagation();
       }
-    }, true);
+    },true);
 
-    rail.addEventListener('wheel', event => {
-      const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
-      if (!delta) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const rawTarget = wheelTarget + delta * .85;
-      const max = maxScroll();
-      wheelTarget = clamp(rawTarget);
-      if ((rawTarget < 0 && rail.scrollLeft <= .5) || (rawTarget > max && rail.scrollLeft >= max - .5)) {
-        const excess = rawTarget < 0 ? -rawTarget : rawTarget - max;
-        const direction = rawTarget < 0 ? 1 : -1;
-        setElastic(direction * Math.min(58, 10 + Math.pow(excess, .68) * 1.15));
-        clearTimeout(rail.__galleryEdgeTimer);
-        rail.__galleryEdgeTimer = setTimeout(releaseElastic, 90);
+    // Mouse wheel / trackpad feedback at both finite edges and with short content.
+    rail.addEventListener('wheel',event=>{
+      const delta=Math.abs(event.deltaX)>=Math.abs(event.deltaY)?event.deltaX:event.deltaY;
+      if(!delta) return;
+      const max=maxScroll();
+      const current=rail.scrollLeft;
+      const next=current+delta;
+      if(max<1 || next<0 || next>max){
+        event.preventDefault();
+        event.stopPropagation();
+        const sign=max<1 ? -Math.sign(delta) : (next<0?1:-1);
+        setShift(sign*resistance(Math.abs(delta)*3.4),false);
+        clearTimeout(wheelTimer);
+        wheelTimer=setTimeout(release,130);
+      }else{
+        event.preventDefault();
+        event.stopPropagation();
+        rail.scrollLeft=clamp(next,0,max);
       }
-      if (wheelRaf) return;
-      const tick = () => {
-        const diff = wheelTarget - rail.scrollLeft;
-        rail.scrollLeft = clamp(rail.scrollLeft + diff * .18);
-        if (Math.abs(diff) > .5) wheelRaf = requestAnimationFrame(tick);
-        else { rail.scrollLeft = wheelTarget; wheelRaf = 0; }
-      };
-      wheelRaf = requestAnimationFrame(tick);
-    }, {passive:false, capture:true});
+    },{capture:true,passive:false});
   }
 
-  function run() {
-    document.querySelectorAll('.gallery-drawer-grid').forEach(attachRail);
-  }
-  new MutationObserver(() => requestAnimationFrame(run)).observe(document.documentElement,{childList:true,subtree:true});
+  function run(){document.querySelectorAll('.gallery-drawer-grid').forEach(attach)}
+  new MutationObserver(()=>requestAnimationFrame(run)).observe(document.documentElement,{childList:true,subtree:true});
   window.addEventListener('load',run);
+  run();
 })();
 
 /* 2026-07-12 — center active month/year and harden gallery action isolation */

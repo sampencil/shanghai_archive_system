@@ -6792,3 +6792,251 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
 .brand{display:flex;align-items:center;height:42px;font-size:0;line-height:1}
 .brand img{display:block;width:152px;height:15px;max-width:none;object-fit:contain}
 @media(max-width:620px){.brand{top:17px;height:24px}.brand img{width:122px;height:auto}}
+
+/* 2026-07-15 — unified Map object hierarchy, image bounds, stars and top navigation alignment. */
+
+/* The logo and the three mode icons share one vertical navigation row on every layout. */
+.topbar{
+  --nav-row-top:clamp(18px,1.9vh,24px);
+  --nav-row-height:50px;
+}
+.topbar .brand,
+.topbar .mode-switcher{
+  top:var(--nav-row-top)!important;
+  height:var(--nav-row-height)!important;
+}
+.topbar .brand{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  line-height:1!important;
+}
+.topbar .brand img{
+  display:block!important;
+  width:152px!important;
+  height:auto!important;
+  max-height:18px!important;
+  object-fit:contain!important;
+  object-position:left center!important;
+}
+.topbar .mode-switcher{
+  align-items:center!important;
+}
+@media (max-width:720px){
+  .topbar{
+    --nav-row-top:14px;
+    --nav-row-height:40px;
+  }
+  .topbar .brand img{
+    width:122px!important;
+    max-height:15px!important;
+  }
+}
+
+/* Every Map asset uses the same aspect-ratio-safe bounding box. This also applies
+   to images uploaded or replaced later in the admin system. */
+.map-stage{
+  --map-object-max-width:96px;
+  --map-object-max-height:96px;
+}
+.map-pin img{
+  width:auto!important;
+  height:auto!important;
+  max-width:var(--map-object-max-width)!important;
+  max-height:var(--map-object-max-height)!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  aspect-ratio:auto!important;
+}
+
+/* In a selected region, collected objects outside that region remain present but
+   are quieter. In overview mode every collected object has equal brightness. */
+.map-stage.is-zone-view .map-pin.is-collected.is-outside-zone img{
+  opacity:.38!important;
+  filter:grayscale(.58) brightness(.66) saturate(.55)!important;
+}
+.map-stage.is-zone-view .map-pin.is-collected:not(.is-outside-zone) img,
+.map-stage.is-global-view .map-pin.is-collected img{
+  opacity:1!important;
+  filter:none!important;
+}
+
+/* Restore every uncollected location star. Hover may temporarily replace it with
+   the image, but no point may disappear because of stale touch-hover state. */
+.map-view .map-pin.is-visible:not(.is-collected) .pin-star{
+  display:grid!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+.map-view .map-pin.is-visible:not(.is-collected) .pin-ripple{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+.map-view .map-stage.is-zone-view .map-pin.is-visible.is-outside-zone:not(.is-collected) .pin-star{
+  opacity:.42!important;
+}
+.map-view .map-stage.is-zone-view .map-pin.is-visible.is-outside-zone:not(.is-collected) .pin-ripple{
+  opacity:.24!important;
+}
+@media (hover:hover) and (pointer:fine){
+  .map-view .map-pin.is-visible:not(.is-collected):hover .pin-star,
+  .map-view .map-pin.is-visible:not(.is-collected).is-hovered .pin-star,
+  .map-view .map-pin.is-visible:not(.is-collected):hover .pin-ripple,
+  .map-view .map-pin.is-visible:not(.is-collected).is-hovered .pin-ripple{
+    opacity:0!important;
+    visibility:hidden!important;
+  }
+  /* Desktop hover and collected images use precisely the same geometry. */
+  .map-pin.is-visible.is-hovered img,
+  .map-pin.is-visible:hover img,
+  .map-pin.is-visible.is-collected img{
+    width:auto!important;
+    height:auto!important;
+    max-width:var(--map-object-max-width)!important;
+    max-height:var(--map-object-max-height)!important;
+    transform:translate(-50%,-50%) scale(var(--map-object-scale,1))!important;
+    transform-origin:center!important;
+  }
+}
+
+/* Touch screens: cap the apparent object size after the map reaches close zoom.
+   Phones get a tighter box; iPads retain a little more presence. */
+@media (hover:none), (pointer:coarse){
+  .map-stage{
+    --map-object-max-width:88px;
+    --map-object-max-height:88px;
+  }
+  .map-pin.is-collected img{
+    transform:translate(-50%,-50%) scale(var(--map-object-scale,1))!important;
+  }
+}
+@media (hover:none) and (pointer:coarse) and (max-width:620px){
+  .map-stage{
+    --map-object-max-width:74px;
+    --map-object-max-height:74px;
+  }
+}
+
+
+/* 2026-07-15 — reliable Gallery saved-rail rubber band on every device.
+   Horizontal motion is handled by Pointer Events so resistance remains visible
+   even when there is no native overflow to scroll. */
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid{
+  touch-action:pan-y pinch-zoom!important;
+  overscroll-behavior-x:none!important;
+  transform:translate3d(0,0,0);
+  will-change:transform;
+  -webkit-user-select:none;
+  user-select:none;
+}
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid.is-edge-releasing{
+  pointer-events:none;
+}
+
+
+/* 2026-07-15 — cards themselves move at the saved Gallery rail edge.
+   This remains visible even when the rail has no overflow or Safari composites
+   the native scrolling element separately. */
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid{
+  touch-action:none!important;
+  overscroll-behavior:none!important;
+}
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid > .gallery-drawer-card{
+  translate:var(--drawer-edge-shift,0px) 0;
+  transition:translate var(--drawer-edge-duration,0ms) cubic-bezier(.16,.86,.2,1);
+  will-change:translate;
+}
+
+/* 2026-07-15 — Object background now mirrors the AMap pre-load ambience.
+   Remove the horizontal light bands and use a centered, softly pulsing radial wash. */
+.objects-view{
+  isolation:isolate!important;
+  background:#0d2c41!important;
+}
+.objects-view::before,
+.objects-view::after{
+  content:""!important;
+  position:absolute!important;
+  inset:-18%!important;
+  z-index:0!important;
+  pointer-events:none!important;
+  will-change:transform,opacity!important;
+  transform-origin:50% 46%!important;
+}
+.objects-view::before{
+  background:
+    radial-gradient(circle at 50% 44%,
+      rgba(52,170,202,.24) 0%,
+      rgba(27,126,165,.16) 22%,
+      rgba(17,83,118,.075) 43%,
+      transparent 68%)!important;
+  filter:blur(30px)!important;
+  opacity:.72!important;
+  animation:objectMapGlowPulse 6.8s ease-in-out infinite!important;
+}
+.objects-view::after{
+  background:
+    radial-gradient(ellipse at 50% 46%,
+      rgba(118,218,228,.075) 0%,
+      rgba(25,111,150,.055) 32%,
+      transparent 67%)!important;
+  filter:blur(46px)!important;
+  opacity:.48!important;
+  animation:objectMapGlowDrift 9.6s ease-in-out infinite alternate!important;
+}
+.objects-view>*{position:relative;z-index:1}
+.objects-view .floating-object{position:absolute;z-index:2}
+@keyframes objectMapGlowPulse{
+  0%,100%{transform:translate3d(0,1.5%,0) scale(.94);opacity:.44}
+  38%{transform:translate3d(0,-.4%,0) scale(1.035);opacity:.78}
+  58%{transform:translate3d(0,0,0) scale(1.075);opacity:.86}
+  76%{transform:translate3d(0,.8%,0) scale(1.01);opacity:.62}
+}
+@keyframes objectMapGlowDrift{
+  0%{transform:translate3d(-1.8%,1.2%,0) scale(.98);opacity:.34}
+  50%{transform:translate3d(1.1%,-1%,0) scale(1.055);opacity:.56}
+  100%{transform:translate3d(-.4%,.3%,0) scale(1.015);opacity:.42}
+}
+@media(max-width:720px){
+  .objects-view::before{filter:blur(24px)!important;opacity:.66!important}
+  .objects-view::after{filter:blur(36px)!important;opacity:.40!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .objects-view::before,.objects-view::after{animation:none!important}
+}
+
+/* 2026-07-15 — timeline motion only: fixed anchor + one continuously moving rail.
+   Calendar opening/centering and manual drag behavior are intentionally untouched. */
+.timeline-track{
+  animation:none!important;
+  opacity:1!important;
+  filter:none!important;
+  transition-property:transform!important;
+  transition-duration:520ms!important;
+  transition-timing-function:cubic-bezier(.22,.78,.2,1)!important;
+}
+.timeline-track.shift-left,
+.timeline-track.shift-right{
+  animation:none!important;
+  opacity:1!important;
+  filter:none!important;
+}
+.timeline-track button,
+.timeline-track button::before,
+.timeline-track button::after{
+  animation:none!important;
+}
+/* Prevent the old number-fade/underline-flick from competing with rail movement. */
+.timeline-track button{
+  transition:none!important;
+}
+.timeline-track.is-dragging{
+  transition:none!important;
+}
+@media(max-width:640px){
+  .timeline-track{transition-duration:560ms!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .timeline-track{transition-duration:1ms!important}
+}

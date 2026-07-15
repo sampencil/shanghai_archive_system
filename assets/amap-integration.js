@@ -30,9 +30,12 @@
   // 地图缩放采用对数级别，因此物件尺寸也使用指数曲线跟随。
   // REGION_ZOOM(14.3) 为 1 倍；OVERVIEW_ZOOM(12.8) 约为 0.76 倍，
   // 比单纯使用 zoom 比例更能拉开全览与区域视图的层次。
-  const OBJECT_SCALE_EXPONENT = 0.65;
-  const OBJECT_SCALE_MIN = 0.56;
-  const OBJECT_SCALE_MAX = 1.38;
+  const OBJECT_SCALE_EXPONENT = 0.52;
+  const OBJECT_SCALE_MIN = 0.60;
+  const OBJECT_SCALE_MAX = 1.22;
+  const TOUCH_OBJECT_SCALE_EXPONENT = 0.40;
+  const TOUCH_OBJECT_SCALE_MIN = 0.64;
+  const TOUCH_OBJECT_SCALE_MAX = 1.04;
 
   // 区域名称与中心点由资产控制台维护；所有区域共用 REGION_ZOOM。
   const DEFAULT_REGIONS = [
@@ -83,8 +86,12 @@
   function updateObjectScale(state) {
     if (!state || !state.map || !state.stage.isConnected) return;
     const zoom = Number(state.map.getZoom?.() ?? REGION_ZOOM);
-    const rawScale = Math.pow(2, (zoom - REGION_ZOOM) * OBJECT_SCALE_EXPONENT);
-    const scale = Math.max(OBJECT_SCALE_MIN, Math.min(OBJECT_SCALE_MAX, rawScale));
+    const isTouch = window.matchMedia("(hover:none), (pointer:coarse)").matches;
+    const exponent = isTouch ? TOUCH_OBJECT_SCALE_EXPONENT : OBJECT_SCALE_EXPONENT;
+    const minScale = isTouch ? TOUCH_OBJECT_SCALE_MIN : OBJECT_SCALE_MIN;
+    const maxScale = isTouch ? TOUCH_OBJECT_SCALE_MAX : OBJECT_SCALE_MAX;
+    const rawScale = Math.pow(2, (zoom - REGION_ZOOM) * exponent);
+    const scale = Math.max(minScale, Math.min(maxScale, rawScale));
     state.stage.style.setProperty("--map-object-scale", scale.toFixed(4));
   }
 
