@@ -7040,3 +7040,86 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
 @media(prefers-reduced-motion:reduce){
   .timeline-track{transition-duration:1ms!important}
 }
+
+
+/* 2026-07-15 FINAL — restore the saved Gallery drawer to plain native scrolling.
+   No rubber band, pointer capture, card translation, or touch interception. */
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-x pinch-zoom!important;
+  overscroll-behavior-x:auto!important;
+  overscroll-behavior-y:none!important;
+  scroll-snap-type:none!important;
+  scroll-behavior:auto!important;
+  transform:none!important;
+  translate:none!important;
+  will-change:auto!important;
+  cursor:auto!important;
+  -webkit-user-select:auto!important;
+  user-select:auto!important;
+}
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid.is-horizontal-dragging,
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid.is-edge-releasing{
+  pointer-events:auto!important;
+  touch-action:pan-x pinch-zoom!important;
+  transform:none!important;
+}
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid > .gallery-drawer-card{
+  translate:none!important;
+  transform:none;
+  transition-property:filter,opacity!important;
+  will-change:auto!important;
+  touch-action:pan-x pinch-zoom!important;
+}
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid > .gallery-drawer-card,
+.gallery-view.gallery-pull-shell .gallery-behind-drawer > .gallery-drawer-grid > .gallery-drawer-card *{
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* Quieter, smaller and cheaper Map point ripple on every device. */
+.pin-ripple{
+  width:24px!important;
+  height:24px!important;
+  border:1px solid rgba(116,181,194,.18)!important;
+  box-shadow:none!important;
+  filter:none!important;
+  opacity:0;
+  transform:translate3d(-50%,-50%,0) scale(.82)!important;
+  transform-origin:center!important;
+  animation:mapPulseQuiet 4.8s cubic-bezier(.22,.62,.28,1) infinite!important;
+  will-change:transform,opacity!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+}
+.map-stage.is-global-view .pin-ripple{
+  width:20px!important;
+  height:20px!important;
+}
+.map-pin:nth-child(3n+1) .pin-ripple{animation-delay:-1.1s!important}
+.map-pin:nth-child(3n+2) .pin-ripple{animation-delay:-2.7s!important}
+.map-pin:nth-child(3n) .pin-ripple{animation-delay:-4.0s!important}
+.map-view.is-map-interacting .pin-ripple{
+  animation-play-state:paused!important;
+  opacity:.04!important;
+}
+@keyframes mapPulseQuiet{
+  0%{opacity:.16;transform:translate3d(-50%,-50%,0) scale(.82)}
+  62%{opacity:.055;transform:translate3d(-50%,-50%,0) scale(1.24)}
+  100%{opacity:0;transform:translate3d(-50%,-50%,0) scale(1.42)}
+}
+@media (hover:none), (pointer:coarse){
+  .pin-ripple{
+    width:22px!important;
+    height:22px!important;
+    animation-duration:5.4s!important;
+  }
+  .map-stage.is-global-view .pin-ripple{
+    width:18px!important;
+    height:18px!important;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .pin-ripple{animation:none!important;opacity:.08!important}
+}

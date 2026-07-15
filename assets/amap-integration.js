@@ -249,6 +249,20 @@
 
       current = { view, stage, world, host, map };
       unlockMapBrowsing(current);
+
+      // Pause decorative ripples while the map is being moved or zoomed. This keeps
+      // touch interaction smooth without changing map behavior.
+      let interactionReleaseTimer = 0;
+      const beginMapInteraction = () => {
+        clearTimeout(interactionReleaseTimer);
+        view.classList.add("is-map-interacting");
+      };
+      const endMapInteraction = () => {
+        clearTimeout(interactionReleaseTimer);
+        interactionReleaseTimer = setTimeout(() => view.classList.remove("is-map-interacting"), 90);
+      };
+      ["movestart", "zoomstart", "dragstart", "touchstart"].forEach(name => map.on(name, beginMapInteraction));
+      ["moveend", "zoomend", "dragend", "touchend"].forEach(name => map.on(name, endMapInteraction));
       map.on("dragstart", () => {
         if (current?.focusFrame) {
           cancelAnimationFrame(current.focusFrame);
