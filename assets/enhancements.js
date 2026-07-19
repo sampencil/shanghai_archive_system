@@ -1,51 +1,308 @@
 (() => {
   'use strict';
-  const signatureKey = () => [...document.querySelectorAll('.floating-object')].map(x=>x.querySelector('img')?.getAttribute('src') || x.dataset.id || '').join('|');
-  let lastSignature='';
-  function noise(i,s=0){const x=Math.sin((i+1)*91.733+s*17.17)*43758.5453;return x-Math.floor(x)}
-  function layout(){
-    const view=document.querySelector('.objects-view'); if(!view)return;
-    const els=[...view.querySelectorAll('.floating-object')]; if(!els.length)return;
-    const sig=signatureKey(); if(sig===lastSignature&&els.every(x=>x.dataset.spatialReady))return; lastSignature=sig;
-    const seed=[...sig].reduce((a,c)=>((a*31+c.charCodeAt(0))>>>0),2166136261);
-    const heroIndex=seed%els.length;
-    const anchors=[
-      [50,53],[18,24],[82,23],[9,60],[91,60],[26,76],[75,78],
-      [31,34],[68,34],[42,74],[60,72],[15,84],[86,84],[48,20],[56,88]
-    ];
-    const occupied=[];
-    els.forEach((el,i)=>{
-      const hero=i===heroIndex;
-      let a=anchors[(i+(seed%7))%anchors.length];
-      let x=a[0]+(noise(i,seed%37)-.5)*(hero?3:9);
-      let y=a[1]+(noise(i,seed%53)-.5)*(hero?3:8);
-      if(!hero){
-        for(let attempt=0;attempt<35;attempt++){
-          const min=occupied.length?Math.min(...occupied.map(o=>Math.hypot((x-o.x)*1.12,y-o.y))):99;
-          if(min>13)break;
-          x=10+noise(i,attempt+17+seed%11)*80;
-          y=18+noise(i,attempt+31+seed%13)*70;
-        }
+
+  const LEGACY_WEIGHT = { A: 5, B: 4, C: 3, D: 2 };
+  // A fresh composition seed is created for every page load. The layout remains
+  // stable during the current visit, but changes the next time the site opens.
+  const SESSION_SALT = (() => {
+    try {
+      const values = new Uint32Array(2);
+      crypto.getRandomValues(values);
+      return `${values[0].toString(36)}-${values[1].toString(36)}`;
+    } catch {
+      return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    }
+  })();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const hash = value => {
+    let h = 2166136261;
+    for (let i = 0; i < value.length; i += 1) {
+      h ^= value.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  };
+  const random = seed => {
+    const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const signed = seed => random(seed) * 2 - 1;
+  const visualWeight = value => {
+    const key = String(value ?? '').trim().toUpperCase();
+    if (LEGACY_WEIGHT[key]) return LEGACY_WEIGHT[key];
+    const n = Number(key);
+    return Number.isFinite(n) ? clamp(Math.round(n), 1, 5) : 1;
+  };
+
+  function deviceMode() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const touch = matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0;
+    if (width <= 620) return 'mobile';
+    if (touch && height >= width) return 'tablet-portrait';
+    if (touch) return 'tablet-landscape';
+    return 'desktop';
+  }
+
+  const slots = {
+    desktop: [
+      // The primary Hero is always complete and near the visual centre.
+      { x:51, y:47, r:4, role:'hero', primary:true },
+      // A second strong object may create edge tension, but is never half-hidden.
+      { x:8, y:29, r:-15, role:'hero', overflow:true },
+      { x:82, y:23, r:9, role:'secondary' },
+      { x:78, y:72, r:-10, role:'secondary' },
+      { x:24, y:73, r:8, role:'secondary' },
+      { x:31, y:30, r:-7, role:'standard' },
+      { x:66, y:28, r:7, role:'standard' },
+      { x:12, y:55, r:12, role:'standard' },
+      { x:91, y:53, r:-12, role:'standard', overflow:true },
+      { x:43, y:75, r:-5, role:'standard' },
+      { x:63, y:79, r:10, role:'standard' },
+      { x:18, y:89, r:-8, role:'accent', overflow:true },
+      { x:87, y:87, r:7, role:'accent', overflow:true },
+      { x:43, y:18, r:12, role:'accent' },
+      { x:58, y:90, r:-10, role:'accent', overflow:true }
+    ],
+    'tablet-landscape': [
+      { x:51, y:47, r:4, role:'hero', primary:true },
+      { x:9, y:29, r:-13, role:'hero', overflow:true },
+      { x:81, y:24, r:8, role:'secondary' },
+      { x:76, y:72, r:-8, role:'secondary' },
+      { x:24, y:72, r:7, role:'secondary' },
+      { x:31, y:31, r:-6, role:'standard' },
+      { x:66, y:29, r:6, role:'standard' },
+      { x:12, y:56, r:10, role:'standard' },
+      { x:90, y:54, r:-10, role:'standard', overflow:true },
+      { x:44, y:76, r:-4, role:'standard' },
+      { x:63, y:80, r:8, role:'accent' },
+      { x:20, y:89, r:-7, role:'accent', overflow:true },
+      { x:85, y:88, r:6, role:'accent', overflow:true },
+      { x:47, y:18, r:10, role:'accent' }
+    ],
+    'tablet-portrait': [
+      { x:50, y:31, r:-5, role:'hero', primary:true },
+      { x:18, y:50, r:-12, role:'secondary' },
+      { x:79, y:49, r:10, role:'secondary' },
+      { x:52, y:61, r:5, role:'standard' },
+      { x:23, y:71, r:8, role:'standard' },
+      { x:79, y:72, r:-8, role:'standard' },
+      { x:8, y:37, r:10, role:'standard', overflow:true },
+      { x:92, y:34, r:-9, role:'accent', overflow:true },
+      { x:47, y:82, r:-5, role:'standard' },
+      { x:17, y:91, r:7, role:'accent', overflow:true },
+      { x:82, y:91, r:-6, role:'accent', overflow:true },
+      { x:48, y:17, r:6, role:'accent' }
+    ],
+    mobile: [
+      { x:50, y:29, r:-4, role:'hero', primary:true },
+      { x:18, y:49, r:-11, role:'secondary' },
+      { x:81, y:50, r:9, role:'secondary' },
+      { x:51, y:62, r:4, role:'standard' },
+      { x:19, y:71, r:8, role:'standard' },
+      { x:81, y:72, r:-7, role:'standard' },
+      { x:3, y:37, r:8, role:'standard', overflow:true },
+      { x:96, y:36, r:-8, role:'accent', overflow:true },
+      { x:49, y:82, r:-4, role:'standard' },
+      { x:16, y:91, r:6, role:'accent', overflow:true },
+      { x:83, y:91, r:-6, role:'accent', overflow:true },
+      { x:50, y:17, r:5, role:'accent' }
+    ]
+  };
+
+  const baseWidths = {
+    desktop: { 1:10.5, 2:13.5, 3:17.5, 4:22.5, 5:31.5 },
+    'tablet-landscape': { 1:10, 2:13, 3:17, 4:21.5, 5:28.5 },
+    'tablet-portrait': { 1:11.5, 2:15, 3:20, 4:26, 5:35 },
+    mobile: { 1:16.5, 2:21.5, 3:27.0, 4:33.0, 5:39.5 }
+  };
+
+  function activeDateKey() {
+    const active = document.querySelector('.timeline-track button.is-active');
+    return active?.getAttribute('aria-label') || active?.textContent?.trim() || 'today';
+  }
+
+  function imageShape(img) {
+    const width = img?.naturalWidth || img?.width || 1;
+    const height = img?.naturalHeight || img?.height || 1;
+    const ratio = width / Math.max(1, height);
+    if (ratio >= 1.58) return { type:'wide', ratio };
+    if (ratio <= .7) return { type:'tall', ratio };
+    if (ratio >= .84 && ratio <= 1.2) return { type:'square', ratio };
+    return { type:'regular', ratio };
+  }
+
+  function compatibleSlots(weight, mode) {
+    const all = slots[mode];
+    if (weight >= 5) return [...all.filter(s=>s.role==='hero'), ...all.filter(s=>s.role==='secondary'), ...all.filter(s=>s.role==='standard')];
+    if (weight === 4) return [...all.filter(s=>s.role==='secondary'), ...all.filter(s=>s.role==='hero'), ...all.filter(s=>s.role==='standard')];
+    if (weight === 3) return [...all.filter(s=>s.role==='standard'), ...all.filter(s=>s.role==='secondary'), ...all.filter(s=>s.role==='accent')];
+    return [...all.filter(s=>s.role==='accent'), ...all.filter(s=>s.role==='standard'), ...all.filter(s=>s.role==='secondary')];
+  }
+
+  function estimatedRect(slot, widthPct, ratio) {
+    const heightPct = widthPct / clamp(ratio, .55, 1.9) * (window.innerWidth / Math.max(window.innerHeight, 1));
+    return {
+      left:slot.x-widthPct/2, right:slot.x+widthPct/2,
+      top:slot.y-heightPct/2, bottom:slot.y+heightPct/2,
+      width:widthPct, height:heightPct
+    };
+  }
+
+  function overlap(a,b) {
+    const w=Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left));
+    const h=Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+    const area=w*h;
+    return area/Math.max(1,Math.min(a.width*a.height,b.width*b.height));
+  }
+
+  let lastSignature = '';
+  let scheduled = 0;
+
+  function layout(force=false) {
+    const view = document.querySelector('.objects-view');
+    if (!view) return;
+    const elements = [...view.querySelectorAll('.floating-object')];
+    if (!elements.length) return;
+    const mode = deviceMode();
+    const prepared = elements.map((el,index) => {
+      const img=el.querySelector('img');
+      const weight=visualWeight(el.dataset.visualWeight);
+      const id=el.dataset.objectId || img?.src || String(index);
+      const shape=imageShape(img);
+      return {el,img,index,weight,id,shape,key:hash(`${SESSION_SALT}|${activeDateKey()}|${mode}|${id}`)};
+    }).sort((a,b)=>b.weight-a.weight || a.key-b.key);
+    const signature = `${SESSION_SALT}|${activeDateKey()}|${mode}|${Math.round(innerWidth/40)}|${Math.round(innerHeight/40)}|` + prepared.map(x=>`${x.id}:${x.weight}:${x.shape.type}`).join('|');
+    if (!force && signature === lastSignature && prepared.every(x=>x.el.dataset.posterReady==='1')) return;
+    lastSignature=signature;
+
+    const used=new Set();
+    const rects=[];
+    const primaryHeroIndex = prepared.findIndex(item => item.weight === 5);
+    const primarySlotIndex = slots[mode].findIndex(slot => slot.primary);
+    const compositionKey = hash(`${SESSION_SALT}|${activeDateKey()}|${mode}|composition`);
+
+    prepared.forEach((item,order)=>{
+      const shapeFactor=item.shape.type==='wide'?1.10:item.shape.type==='tall'?.86:item.shape.type==='square'?1.06:1;
+      const jitter=.90+random(item.key+17)*.20;
+      let width=baseWidths[mode][item.weight]*shapeFactor*jitter;
+
+      // Mobile needs a deliberately wider visual gap between weights. Generic
+      // image-height caps previously flattened weights 3–5 into nearly the same
+      // apparent size, especially for portrait images. Keep each level in its own
+      // non-overlapping band so weight remains visible at a glance.
+      if (mode === 'mobile') {
+        const mobileBands = {
+          1: [14.5, 17.5],
+          2: [19.0, 23.0],
+          3: [24.5, 29.0],
+          4: [30.5, 35.5],
+          5: [37.5, 42.0]
+        };
+        const [minWidth, maxWidth] = mobileBands[item.weight];
+        width = clamp(width, minWidth, maxWidth);
       }
-      const width=hero?(22+noise(i,71)*6):(8.5+noise(i,42)*8.5);
-      occupied.push({x,y,w:width});
-      el.style.left=x+'%'; el.style.top=y+'%'; el.style.width=width+'%';
-      el.style.zIndex=hero?'5':String(1+Math.floor(noise(i,99)*3));
-      el.style.setProperty('--rotation',(hero?(-4+noise(i,44)*8):(-18+noise(i,44)*36))+'deg');
-      el.style.setProperty('--object-scale',(hero?(1.04+noise(i,45)*.12):(.82+noise(i,45)*.34)).toFixed(3));
-      el.style.setProperty('--breath',(6+noise(i,46)*5)+'s');
-      el.dataset.hero=hero?'true':'false';
-      el.dataset.spatialReady='1';
+
+      if (mode === 'tablet-portrait') {
+        const tabletPortraitBands = {
+          1: [9.5, 14],
+          2: [13.5, 18.5],
+          3: [18.5, 24.5],
+          4: [25.5, 33],
+          5: [35, 43]
+        };
+        const [minWidth, maxWidth] = tabletPortraitBands[item.weight];
+        width = clamp(width, minWidth, maxWidth);
+      }
+      let chosen=null,chosenIndex=-1,bestScore=Infinity;
+
+      // The first weight-5 object is always the complete central Hero.
+      if (order === primaryHeroIndex && primarySlotIndex >= 0) {
+        chosen = slots[mode][primarySlotIndex];
+        chosenIndex = primarySlotIndex;
+        width *= mode === 'mobile' ? 1 : mode === 'tablet-portrait' ? .98 : .92;
+        if (mode === 'mobile') width = Math.max(width, 39);
+        if (mode === 'tablet-portrait') width = Math.max(width, 37);
+      } else {
+        const candidates=compatibleSlots(item.weight,mode);
+        candidates.forEach((slot,idx)=>{
+          const globalIndex=slots[mode].indexOf(slot);
+          if(used.has(globalIndex))return;
+          if(slot.primary)return;
+          if(slot.role==='hero'&&item.weight<4)return;
+          if(slot.overflow&&item.weight<4)return;
+          const rect=estimatedRect(slot,width,item.shape.ratio);
+          const maxOverlap=rects.reduce((m,r)=>Math.max(m,overlap(rect,r.rect)),0);
+          const rolePenalty=item.weight>=5?(slot.role==='hero'?0:slot.role==='secondary'?1:3):item.weight===4?(slot.role==='secondary'?0:slot.role==='hero'?1:2):item.weight===3?(slot.role==='standard'?0:1):(slot.role==='accent'?0:1);
+          // Session-based variation changes slot choices on every new page load.
+          const variation=random(item.key + compositionKey + globalIndex*997)*.72;
+          const score=maxOverlap*12+rolePenalty+variation+idx*.006;
+          if(score<bestScore){bestScore=score;chosen=slot;chosenIndex=globalIndex;}
+        });
+      }
+
+      if(!chosen){
+        chosen=slots[mode].find((slot,i)=>!used.has(i)&&!slot.primary) || slots[mode][order%slots[mode].length];
+        chosenIndex=slots[mode].indexOf(chosen);
+      }
+      used.add(chosenIndex);
+
+      const isPrimary = chosen.primary === true;
+      const maxRotation=item.shape.type==='wide'?(mode==='mobile'?14:23):item.shape.type==='tall'?(mode==='mobile'?15:26):(mode==='mobile'?9:15);
+      const weightCalm=(item.weight>=5?.52:item.weight===4?.75:1);
+      const rotation=clamp(chosen.r + signed(item.key+29)*6*weightCalm,-maxRotation,maxRotation);
+      const xJitter=isPrimary?(mode==='mobile'?1.2:2.2):(chosen.role==='hero'?2.2:3.6);
+      const yJitter=isPrimary?(mode==='mobile'?1.4:2.4):(chosen.role==='hero'?2.0:3.0);
+      const x=chosen.x + signed(item.key+37)*xJitter;
+      const y=chosen.y + signed(item.key+43)*yJitter;
+      const rect=estimatedRect({x,y},width,item.shape.ratio);
+      rects.push({rect,weight:item.weight});
+
+      const floatScale=item.weight>=5?.72:item.weight===4?.86:1;
+      const floatX1=signed(item.key+53)*(3.5+random(item.key+54)*4.5)*floatScale;
+      const floatY1=-(5+random(item.key+55)*6.5)*floatScale;
+      const floatX2=-floatX1*.55 + signed(item.key+56)*1.8;
+      const floatY2=(1.5+random(item.key+57)*4)*floatScale;
+      const floatRotate=signed(item.key+58)*(item.weight>=5?.65:1.15);
+      const floatDuration=7.2+random(item.key+59)*5.8;
+      const breathDuration=5.8+random(item.key+60)*4.2;
+      const breathScale=1.014+random(item.key+61)*.024;
+      const delay=-random(item.key+62)*floatDuration;
+
+      item.el.style.setProperty('--left',`${x.toFixed(2)}%`);
+      item.el.style.setProperty('--top',`${y.toFixed(2)}%`);
+      item.el.style.setProperty('--width',`${width.toFixed(2)}%`);
+      item.el.style.width = `${width.toFixed(2)}%`;
+      item.el.style.setProperty('--rotation',`${rotation.toFixed(2)}deg`);
+      item.el.style.setProperty('--object-scale','1');
+      item.el.style.setProperty('--object-opacity',String(item.weight===1?.84:item.weight===2?.9:item.weight===3?.95:1));
+      item.el.style.setProperty('--float-x1',`${floatX1.toFixed(2)}px`);
+      item.el.style.setProperty('--float-y1',`${floatY1.toFixed(2)}px`);
+      item.el.style.setProperty('--float-x2',`${floatX2.toFixed(2)}px`);
+      item.el.style.setProperty('--float-y2',`${floatY2.toFixed(2)}px`);
+      item.el.style.setProperty('--float-rotate',`${floatRotate.toFixed(2)}deg`);
+      item.el.style.setProperty('--float-duration',`${floatDuration.toFixed(2)}s`);
+      item.el.style.setProperty('--breath-duration',`${breathDuration.toFixed(2)}s`);
+      item.el.style.setProperty('--breath-scale',breathScale.toFixed(4));
+      item.el.style.setProperty('--float-delay',`${delay.toFixed(2)}s`);
+      item.el.style.zIndex=String(item.weight*10+(isPrimary?9:chosen.role==='hero'?7:chosen.role==='secondary'?4:1));
+      item.el.dataset.hero=chosen.role==='hero'?'true':'false';
+      item.el.dataset.primaryHero=isPrimary?'true':'false';
+      item.el.dataset.shape=item.shape.type;
+      item.el.dataset.posterReady='1';
     });
   }
-  function drag(el){if(el.dataset.dragReady)return;el.dataset.dragReady='1';let s=null,raf=0;
-    el.addEventListener('pointerdown',e=>{if(e.button!==undefined&&e.button!==0)return;cancelAnimationFrame(raf);const p=el.closest('.objects-view'),r=p?.getBoundingClientRect(),er=el.getBoundingClientRect();if(!r)return;s={id:e.pointerId,r,p,sx:e.clientX,sy:e.clientY,bx:er.left-r.left+er.width/2,by:er.top-r.top+er.height/2,m:false,lx:e.clientX,ly:e.clientY,t:performance.now(),vx:0,vy:0};el.setPointerCapture?.(e.pointerId);el.classList.add('is-dragging')},true);
-    el.addEventListener('pointermove',e=>{if(!s||s.id!==e.pointerId)return;const dx=e.clientX-s.sx,dy=e.clientY-s.sy;if(Math.hypot(dx,dy)>6)s.m=true;const n=performance.now(),dt=Math.max(8,n-s.t);s.vx=(e.clientX-s.lx)/dt*16;s.vy=(e.clientY-s.ly)/dt*16;s.lx=e.clientX;s.ly=e.clientY;s.t=n;const x=Math.max(s.r.width*.04,Math.min(s.r.width*.96,s.bx+dx)),y=Math.max(s.r.height*.09,Math.min(s.r.height*.92,s.by+dy));el.style.left=x/s.r.width*100+'%';el.style.top=y/s.r.height*100+'%';if(s.m)e.preventDefault()},true);
-    const finish=e=>{if(!s||s.id!==e.pointerId)return;const z=s;s=null;el.classList.remove('is-dragging');if(z.m){el.dataset.suppressClickUntil=performance.now()+400;let vx=z.vx*.78,vy=z.vy*.78;const tick=()=>{vx*=.945;vy*=.945;const x=Math.max(z.r.width*.04,Math.min(z.r.width*.96,parseFloat(el.style.left)/100*z.r.width+vx)),y=Math.max(z.r.height*.09,Math.min(z.r.height*.92,parseFloat(el.style.top)/100*z.r.height+vy));el.style.left=x/z.r.width*100+'%';el.style.top=y/z.r.height*100+'%';if(Math.hypot(vx,vy)>.18)raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick)}};
-    el.addEventListener('pointerup',finish,true);el.addEventListener('pointercancel',finish,true);el.addEventListener('click',e=>{if(performance.now()<+(el.dataset.suppressClickUntil||0)){e.preventDefault();e.stopImmediatePropagation()}},true)
+
+  function schedule(force=false){
+    cancelAnimationFrame(scheduled);
+    scheduled=requestAnimationFrame(()=>layout(force));
   }
-  function run(){layout();document.querySelectorAll('.floating-object').forEach(drag)}
-  new MutationObserver(()=>requestAnimationFrame(run)).observe(document.documentElement,{childList:true,subtree:true});window.addEventListener('load',run);
+  new MutationObserver(()=>schedule(false)).observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener('resize',()=>schedule(true),{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(()=>schedule(true),180),{passive:true});
+  window.addEventListener('load',()=>schedule(true));
+  document.addEventListener('load',event=>{if(event.target?.closest?.('.floating-object'))schedule(true)},true);
+  schedule(true);
 })();
 
 /* Gallery saved rail uses native browser scrolling; custom edge resistance removed. */
@@ -548,4 +805,48 @@
   } else {
     discover();
   }
+})();
+
+
+/* Object hover lock to prevent flicker on overlapping items (fine-pointer only). */
+(() => {
+  'use strict';
+  const canHover = () => window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  let locked = null;
+  function unlock(){
+    if (!locked) return;
+    const view = locked.closest('.objects-view');
+    locked.classList.remove('hover-lock');
+    locked.style.removeProperty('--hover-z');
+    if (view) view.classList.remove('hover-locked');
+    locked = null;
+  }
+  function lock(el){
+    if (!el || locked === el) return;
+    unlock();
+    locked = el;
+    const view = el.closest('.objects-view');
+    if (view) view.classList.add('hover-locked');
+    const base = parseInt(getComputedStyle(el).zIndex || '1', 10) || 1;
+    el.style.setProperty('--hover-z', String(base + 1000));
+    el.classList.add('hover-lock');
+  }
+  document.addEventListener('pointerenter', event => {
+    if (!canHover() || event.pointerType !== 'mouse') return;
+    const el = event.target.closest?.('.objects-view .floating-object');
+    if (!el) return;
+    lock(el);
+  }, true);
+  document.addEventListener('pointerleave', event => {
+    if (!canHover() || event.pointerType !== 'mouse') return;
+    const el = event.target.closest?.('.objects-view .floating-object');
+    if (!el || locked !== el) return;
+    const to = event.relatedTarget;
+    if (to && el.contains(to)) return;
+    unlock();
+  }, true);
+  window.addEventListener('blur', unlock);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) unlock();
+  });
 })();

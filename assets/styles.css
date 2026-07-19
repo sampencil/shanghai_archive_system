@@ -7123,3 +7123,195 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,#root::-webkit-scrollbar,.galler
 @media (prefers-reduced-motion:reduce){
   .pin-ripple{animation:none!important;opacity:.08!important}
 }
+
+
+/* 2026-07-19 — Object visual-weight poster composition (B intensity, varied sessions).
+   Weight 5/4/3/2/1 = Hero / Secondary / Standard / Accent / Micro.
+   Manual object dragging is intentionally removed. */
+.objects-view{
+  overflow:hidden!important;
+  touch-action:auto!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+}
+.objects-view .floating-object,
+.objects-view .floating-object:hover,
+.objects-view .floating-object:active,
+.objects-view .floating-object:focus,
+.objects-view .floating-object:focus-visible,
+.objects-view .floating-object.is-collected{
+  left:var(--left)!important;
+  top:var(--top)!important;
+  width:var(--width)!important;
+  min-width:0!important;
+  max-width:none!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  cursor:pointer!important;
+  touch-action:manipulation!important;
+  transform:translate(-50%,-50%)!important;
+  translate:0 0;
+  transition:left .58s cubic-bezier(.22,.8,.2,1),top .58s cubic-bezier(.22,.8,.2,1),width .5s cubic-bezier(.22,.8,.2,1)!important;
+  animation:objectPosterFloat var(--float-duration,9s) cubic-bezier(.42,0,.3,1) var(--float-delay,0s) infinite!important;
+  will-change:translate;
+  -webkit-tap-highlight-color:transparent!important;
+}
+.objects-view .floating-object.is-dragging{cursor:pointer!important}
+.objects-view .floating-object img,
+.objects-view .floating-object.is-collected img{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:min(48dvh,520px)!important;
+  object-fit:contain!important;
+  opacity:var(--object-opacity,1)!important;
+  transform:rotate(var(--rotation,0deg)) scale(1)!important;
+  transform-origin:center center!important;
+  animation:objectPosterBreath var(--breath-duration,7s) ease-in-out var(--float-delay,0s) infinite!important;
+  transition:filter .3s ease,opacity .3s ease!important;
+  will-change:transform;
+  pointer-events:none!important;
+}
+.objects-view .floating-object[data-shape="wide"] img{max-height:min(42dvh,430px)!important}
+.objects-view .floating-object[data-shape="tall"] img{max-height:min(46dvh,500px)!important}
+.objects-view .floating-object[data-primary-hero="true"] img{max-height:min(45dvh,480px)!important}
+.objects-view .floating-object:hover,
+.objects-view .floating-object:focus-visible{animation-play-state:paused!important}
+.objects-view .floating-object:hover img,
+.objects-view .floating-object:focus-visible img{
+  animation:none!important;
+  transform:rotate(var(--rotation,0deg)) scale(1.045)!important;
+}
+@keyframes objectPosterFloat{
+  0%,100%{translate:0 0}
+  36%{translate:var(--float-x1,4px) var(--float-y1,-8px)}
+  72%{translate:var(--float-x2,-3px) var(--float-y2,3px)}
+}
+@keyframes objectPosterBreath{
+  0%,100%{transform:translate3d(0,0,0) rotate(var(--rotation,0deg)) scale(1)}
+  48%{transform:translate3d(0,-2px,0) rotate(calc(var(--rotation,0deg) + var(--float-rotate,.6deg))) scale(var(--breath-scale,1.025))}
+  76%{transform:translate3d(1px,1px,0) rotate(var(--rotation,0deg)) scale(1.008)}
+}
+@media (max-width:620px){
+  .objects-view .floating-object,
+  .objects-view .floating-object[data-hero="true"],
+  .objects-view .floating-object:not([data-hero="true"]){
+    width:var(--width)!important;
+  }
+  .objects-view .floating-object img,
+  .objects-view .floating-object.is-collected img{
+    max-height:min(25dvh,260px)!important;
+  }
+  .objects-view .floating-object[data-primary-hero="true"] img{max-height:min(27dvh,280px)!important}
+  .objects-view .floating-object[data-shape="tall"] img{max-height:min(28dvh,290px)!important}
+  .objects-view .floating-object[data-shape="wide"] img{max-height:min(22dvh,230px)!important}
+}
+@media (hover:none), (pointer:coarse){
+  .objects-view .floating-object:hover,
+  .objects-view .floating-object:active,
+  .objects-view .floating-object:focus{animation-play-state:running!important}
+  .objects-view .floating-object:hover img,
+  .objects-view .floating-object:active img,
+  .objects-view .floating-object:focus img{
+    animation:objectPosterBreath var(--breath-duration,7s) ease-in-out var(--float-delay,0s) infinite!important;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .objects-view .floating-object,
+  .objects-view .floating-object img{animation:none!important;transition:none!important}
+}
+
+
+/* 2026-07-19 — mobile Object weight hierarchy correction.
+   Each visual weight gets its own width and height band so portrait/wide image
+   constraints cannot collapse Hero, Secondary and Standard into one size. */
+@media (max-width:620px){
+  .objects-view .floating-object.visual-weight-5{
+    width:clamp(37.5%,var(--width),42%)!important;
+    opacity:1!important;
+  }
+  .objects-view .floating-object.visual-weight-4{
+    width:clamp(30.5%,var(--width),35.5%)!important;
+    opacity:1!important;
+  }
+  .objects-view .floating-object.visual-weight-3{
+    width:clamp(24.5%,var(--width),29%)!important;
+  }
+  .objects-view .floating-object.visual-weight-2{
+    width:clamp(19%,var(--width),23%)!important;
+  }
+  .objects-view .floating-object.visual-weight-1{
+    width:clamp(14.5%,var(--width),17.5%)!important;
+  }
+
+  .objects-view .floating-object.visual-weight-5 img,
+  .objects-view .floating-object.visual-weight-5[data-shape="tall"] img,
+  .objects-view .floating-object.visual-weight-5[data-shape="wide"] img{
+    max-height:min(31dvh,300px)!important;
+    opacity:1!important;
+  }
+  .objects-view .floating-object.visual-weight-4 img,
+  .objects-view .floating-object.visual-weight-4[data-shape="tall"] img,
+  .objects-view .floating-object.visual-weight-4[data-shape="wide"] img{
+    max-height:min(27dvh,260px)!important;
+    opacity:1!important;
+  }
+  .objects-view .floating-object.visual-weight-3 img,
+  .objects-view .floating-object.visual-weight-3[data-shape="tall"] img,
+  .objects-view .floating-object.visual-weight-3[data-shape="wide"] img{
+    max-height:min(23dvh,225px)!important;
+    opacity:.95!important;
+  }
+  .objects-view .floating-object.visual-weight-2 img,
+  .objects-view .floating-object.visual-weight-2[data-shape="tall"] img,
+  .objects-view .floating-object.visual-weight-2[data-shape="wide"] img{
+    max-height:min(19dvh,185px)!important;
+    opacity:.87!important;
+  }
+  .objects-view .floating-object.visual-weight-1 img,
+  .objects-view .floating-object.visual-weight-1[data-shape="tall"] img,
+  .objects-view .floating-object.visual-weight-1[data-shape="wide"] img{
+    max-height:min(15dvh,146px)!important;
+    opacity:.74!important;
+  }
+
+  /* The primary weight-5 object is a complete, unmistakable central anchor. */
+  .objects-view .floating-object[data-primary-hero="true"]{
+    width:clamp(39%,var(--width),42%)!important;
+  }
+  .objects-view .floating-object[data-primary-hero="true"] img{
+    max-height:min(32dvh,310px)!important;
+  }
+}
+
+
+/* Mobile object width hierarchy: use JS-computed inline width, not the old forced 18% custom property. */
+@media (max-width:620px){
+  .objects-view .floating-object{ width: auto; }
+}
+/* Overlap hover lock: keep current hovered object on top and disable sibling hit-testing until true leave. */
+.objects-view.hover-locked .floating-object:not(.hover-lock){ pointer-events:none !important; }
+.objects-view .floating-object.hover-lock{ z-index: var(--hover-z) !important; }
+.objects-view .floating-object.hover-lock,
+.objects-view .floating-object.hover-lock img{
+  transition-delay: 0s !important;
+}
+.objects-view .floating-object.hover-lock,
+.objects-view .floating-object.hover-lock:focus-visible{
+  transform: translate(-50%,-50%) scale(1.06) !important;
+}
+.objects-view .floating-object.hover-lock img,
+.objects-view .floating-object.hover-lock:focus-visible img{
+  filter: grayscale(1) blur(0) brightness(1) !important;
+  opacity: 1 !important;
+}
+
+/* A click must win immediately over the active hover lock. The collected
+   object turns to full colour without waiting for the pointer to leave. */
+.objects-view .floating-object.hover-lock.is-collected img,
+.objects-view .floating-object.hover-lock.is-collected:focus-visible img{
+  filter:grayscale(0) blur(0) brightness(1.04)!important;
+  opacity:1!important;
+}

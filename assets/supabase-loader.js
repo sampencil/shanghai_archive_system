@@ -1,5 +1,6 @@
 (async function(){
   const fallback=()=>window.__startShanghaiApp&&window.__startShanghaiApp();
+  const visualWeight=value=>{const key=String(value??'').trim().toUpperCase();const legacy={A:5,B:4,C:3,D:2};if(legacy[key])return legacy[key];const n=Number(key);return Number.isFinite(n)?Math.max(1,Math.min(5,Math.round(n))):1};
   try{
     const cfg=window.SHANGHAI_SUPABASE;
     if(!cfg||!window.supabase)throw new Error('Supabase client unavailable');
@@ -18,7 +19,7 @@
         return {
           id:x.system_id,objectName:x.object_name,image:x.image_url,title:x.exhibition_title,
           venue:venue?.name||x.venue,zone:x.region,dates:`${x.start_date} — ${x.end_date}`,
-          longitude:Number(longitude),latitude:Number(latitude),weight:x.exhibition_weight||''
+          longitude:Number(longitude),latitude:Number(latitude),weight:visualWeight(x.exhibition_weight)
         };
       }).filter(x=>Number.isFinite(x.longitude)&&Number.isFinite(x.latitude));
     }

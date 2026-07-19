@@ -7,6 +7,15 @@ const resolveImageUrl=value=>{if(!value)return '';try{return new URL(value,value
 const assetFields=['system_id','region','exhibition_weight','exhibition_title','venue','venue_id','use_venue_coordinates','object_name','start_date','end_date','image_url','longitude','latitude','description','status','sort_order'];
 const numericFields=new Set(['longitude','latitude','sort_order']);
 const boolFields=new Set(['use_venue_coordinates']);
+// Visual weight UI is numeric (1–5), while legacy databases may still store A/B/C/D.
+// This adapter keeps the existing Supabase constraint working without requiring a migration:
+// A→5, B→4, C→3, D→2, empty/null→1.
+const LEGACY_TO_VISUAL_WEIGHT={A:5,B:4,C:3,D:2};
+const VISUAL_TO_LEGACY_WEIGHT={1:null,2:'D',3:'C',4:'B',5:'A'};
+function visualWeight(value){const key=String(value??'').trim().toUpperCase();if(LEGACY_TO_VISUAL_WEIGHT[key])return LEGACY_TO_VISUAL_WEIGHT[key];const n=Number(key);return Number.isFinite(n)?Math.max(1,Math.min(5,Math.round(n))):1}
+function storageWeight(value){return VISUAL_TO_LEGACY_WEIGHT[visualWeight(value)]??null}
+function weightLabel(value){const n=visualWeight(value);return `${n} · ${n===5?'主视觉':n===4?'次主视觉':n===3?'标准':n===2?'点缀':'微型点缀'}`}
+
 
 async function boot(){
   const {data:{session}}=await sb.auth.getSession();
@@ -59,13 +68,13 @@ function effectiveCoordinates(row){
 function renderList(){
   const q=$('search').value.toLowerCase(),reg=$('regionFilter').value;
   const list=rows.filter(x=>(!reg||x.region===reg)&&[x.system_id,x.exhibition_title,x.venue,x.object_name].join(' ').toLowerCase().includes(q));
-  $('list').innerHTML=list.map(x=>{const c=effectiveCoordinates(x);return `<div class="item ${selected===x.id?'active':''}" data-id="${x.id}"><small>${escapeHtml(x.system_id)} · ${escapeHtml(x.region)} · ${escapeHtml(x.exhibition_weight||'默认')} · ${x.status==='published'?'已发布':'草稿'}</small><h3>${escapeHtml(x.exhibition_title)}</h3><p>${escapeHtml(x.venue)} · ${c.source}</p></div>`}).join('');
+  $('list').innerHTML=list.map(x=>{const c=effectiveCoordinates(x);return `<div class="item ${selected===x.id?'active':''}" data-id="${x.id}"><small>${escapeHtml(x.system_id)} · ${escapeHtml(x.region)} · ${escapeHtml(weightLabel(x.exhibition_weight))} · ${x.status==='published'?'已发布':'草稿'}</small><h3>${escapeHtml(x.exhibition_title)}</h3><p>${escapeHtml(x.venue)} · ${c.source}</p></div>`}).join('');
   document.querySelectorAll('.item').forEach(el=>el.onclick=()=>edit(rows.find(x=>x.id===el.dataset.id)));
 }
 $('search').oninput=renderList;$('regionFilter').onchange=renderList;
 function edit(x){
   selected=x?.id||null;
-  assetFields.forEach(k=>{const el=$(k);if(!el)return;if(k==='use_venue_coordinates')el.value=String(x?.[k]!==false);else el.value=x?.[k]??''});
+  assetFields.forEach(k=>{const el=$(k);if(!el)return;if(k==='use_venue_coordinates')el.value=String(x?.[k]!==false);else if(k==='exhibition_weight')el.value=String(visualWeight(x?.[k]));else el.value=x?.[k]??''});
   $('rowId').value=x?.id||'';
   $('previewImg').src=resolveImageUrl(x?.image_url||'');
   $('deleteBtn').style.visibility=x?'visible':'hidden';
@@ -127,7 +136,7 @@ function normalizePayload(source){
   const venue=venueById(payload.venue_id)||venueByName(payload.venue);
   if(venue){payload.venue_id=venue.id;payload.venue=venue.name}
   else payload.venue_id=null;
-  payload.exhibition_weight=payload.exhibition_weight||null;
+  payload.exhibition_weight=storageWeight(payload.exhibition_weight);
   payload.sort_order=Number(payload.sort_order||0);
   if(payload.use_venue_coordinates){payload.longitude=null;payload.latitude=null}
   return payload;
@@ -148,7 +157,7 @@ $('imageFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;$
 function regionSelect(value){return `<select data-field="region">${regions.map(r=>`<option ${r.name===value?'selected':''}>${escapeHtml(r.name)}</option>`).join('')}</select>`}
 function venueSelect(value){return `<select data-field="venue_id">${venues.map(v=>`<option value="${v.id}" ${v.id===value?'selected':''}>${escapeHtml(v.name)}</option>`).join('')}</select>`}
 function coordinateSourceSelect(value){const use=value!==false;return `<select class="coord-source" data-field="use_venue_coordinates"><option value="true" ${use?'selected':''}>引用地点坐标</option><option value="false" ${!use?'selected':''}>展览独立坐标</option></select>`}
-function weightSelect(value){return `<select data-field="exhibition_weight"><option value="" ${!value?'selected':''}>默认</option>${['A','B','C','D'].map(w=>`<option ${w===value?'selected':''}>${w}</option>`).join('')}</select>`}
+function weightSelect(value){const current=visualWeight(value);return `<select data-field="exhibition_weight">${[1,2,3,4,5].map(w=>`<option value="${w}" ${w===current?'selected':''}>${weightLabel(w)}</option>`).join('')}</select>`}
 function statusSelect(value){return `<select data-field="status"><option value="draft" ${value==='draft'?'selected':''}>草稿</option><option value="published" ${value==='published'?'selected':''}>已发布</option></select>`}
 function inputCell(field,value,type='text',cls=''){return `<input class="${cls}" data-field="${field}" type="${type}" ${type==='number'?'step="any"':''} value="${escapeHtml(value??'')}">`}
 function rowHtml(row,isNew=false){
@@ -171,7 +180,7 @@ function bindSheetRows(){
 function readSheetRow(tr){const raw={};tr.querySelectorAll('[data-field]').forEach(el=>raw[el.dataset.field]=el.value);const v=venueById(raw.venue_id);raw.venue=v?.name||'';return normalizePayload(raw)}
 async function saveSheetRow(tr){const payload=readSheetRow(tr),id=tr.dataset.id;tr.classList.add('saving');const res=id?await sb.from('assets').update(payload).eq('id',id).select().single():await sb.from('assets').insert(payload).select().single();tr.classList.remove('saving');if(res.error)return alert(res.error.message);tr.dataset.id=res.data.id;tr.dataset.new='false';$('sheetMsg').textContent=`${payload.system_id} 已保存`;await refreshDataOnly()}
 async function deleteSheetRow(tr){const id=tr.dataset.id;if(!confirm('确定删除这一行？'))return;if(id){const {error}=await sb.from('assets').delete().eq('id',id);if(error)return alert(error.message)}tr.remove();await refreshDataOnly()}
-$('addSheetRow').onclick=()=>{const tbody=$('assetTable').querySelector('tbody');tbody.insertAdjacentHTML('afterbegin',rowHtml({region:regions[0]?.name,venue_id:venues[0]?.id,use_venue_coordinates:true,status:'draft',sort_order:0},true));bindSheetRows();tbody.querySelector('tr').querySelector('[data-field="system_id"]').focus()};
+$('addSheetRow').onclick=()=>{const tbody=$('assetTable').querySelector('tbody');tbody.insertAdjacentHTML('afterbegin',rowHtml({region:regions[0]?.name,venue_id:venues[0]?.id,use_venue_coordinates:true,exhibition_weight:1,status:'draft',sort_order:0},true));bindSheetRows();tbody.querySelector('tr').querySelector('[data-field="system_id"]').focus()};
 $('saveAllRows').onclick=async()=>{const trs=[...$('assetTable').querySelectorAll('tbody tr')];$('sheetMsg').textContent='正在保存全部修改…';for(const tr of trs)await saveSheetRow(tr);$('sheetMsg').textContent=`已保存 ${trs.length} 条`};
 async function refreshDataOnly(){const {data,error}=await sb.from('assets').select('*').order('sort_order');if(!error){rows=data||[];renderList();$('sheetCount').textContent=`${rows.length} 条`;renderVenues()}}
 
@@ -247,8 +256,9 @@ function bindSelection(){
 const originalRenderSheet=renderSheet;
 renderSheet=function(){originalRenderSheet();bindSelection()};
 
-$('exportAllAssets').onclick=()=>exportXlsx(rows,ASSET_EXPORT_COLUMNS,'展览数据');
-$('exportSelectedAssets').onclick=()=>{const selectedRows=selectedAssetRows();if(!selectedRows.length)return alert('请先勾选要导出的数据');exportXlsx(selectedRows,ASSET_EXPORT_COLUMNS,'选中展览数据')};
+const assetsForExport=data=>data.map(row=>({...row,exhibition_weight:visualWeight(row.exhibition_weight)}));
+$('exportAllAssets').onclick=()=>exportXlsx(assetsForExport(rows),ASSET_EXPORT_COLUMNS,'展览数据');
+$('exportSelectedAssets').onclick=()=>{const selectedRows=selectedAssetRows();if(!selectedRows.length)return alert('请先勾选要导出的数据');exportXlsx(assetsForExport(selectedRows),ASSET_EXPORT_COLUMNS,'选中展览数据')};
 $('exportAllVenues').onclick=()=>exportXlsx(venues,VENUE_EXPORT_COLUMNS,'地点库');
 
 function parseDelimited(text){
@@ -286,6 +296,7 @@ function valueForImport(key,value){
   if(value===''||value==null)return undefined;
   if(['longitude','latitude','sort_order'].includes(key)){const n=Number(value);return Number.isFinite(n)?n:undefined}
   if(key==='use_venue_coordinates')return value===true||String(value).toLowerCase()==='true'||String(value)==='引用地点坐标';
+  if(key==='exhibition_weight')return storageWeight(value);
   return value;
 }
 $('confirmImport').onclick=async()=>{
@@ -298,7 +309,7 @@ $('confirmImport').onclick=async()=>{
   $('importDialog').close();$('confirmImport').textContent='确认更新';$('confirmImport').disabled=false;importState=null;await loadAll();alert(`已更新 ${updated} 条数据`);
 };
 
-const ASSET_BULK_EXAMPLE=`系统ID\t区域\t展览权重\t展览名称\t地点\t坐标来源\t展品名称\t开始日期\t结束日期\t经度\t纬度\t状态\t排序\t描述\nart-101\t外滩\tA\t示例展览\t明圆美术馆\t引用地点坐标\t示例作品\t2026-07-14\t2026-08-14\t\t\tpublished\t1\t示例描述`;
+const ASSET_BULK_EXAMPLE=`系统ID\t区域\t展览权重\t展览名称\t地点\t坐标来源\t展品名称\t开始日期\t结束日期\t经度\t纬度\t状态\t排序\t描述\nart-101\t外滩\t1\t示例展览\t明圆美术馆\t引用地点坐标\t示例作品\t2026-07-14\t2026-08-14\t\t\tpublished\t1\t示例描述`;
 const VENUE_BULK_EXAMPLE=`地点名称\t经度\t纬度\t排序\n明圆美术馆\t121.4701\t31.2102\t6\n洞—当代艺术平台\t121.4830\t31.2620\t7`;
 function openBulk(kind){bulkMode=kind;$('bulkTitle').textContent=kind==='assets'?'批量新增展览数据':'批量新增地点';$('bulkHint').textContent='只支持带表头的制表符表格 TSV。不要添加 ID。';$('bulkExample').textContent=kind==='assets'?ASSET_BULK_EXAMPLE:VENUE_BULK_EXAMPLE;$('bulkText').value='';$('bulkMsg').textContent='';$('confirmBulk').textContent='检查数据';$('bulkDialog').showModal();setTimeout(()=>$('bulkText').focus(),30)}
 $('bulkAddAssets').onclick=()=>openBulk('assets');$('bulkAddVenues').onclick=()=>openBulk('venues');
