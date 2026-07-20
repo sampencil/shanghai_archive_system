@@ -850,3 +850,47 @@
     if (document.hidden) unlock();
   });
 })();
+
+/* Preserve the exact hover geometry when an Object is collected. Collection
+   changes colour only: size, angle and position remain visually unchanged. */
+(() => {
+  'use strict';
+  let capturedOnPointerDown = null;
+
+  function capture(el) {
+    if (!el || el.classList.contains('is-collected')) return;
+    const img = el.querySelector('img');
+    if (!img) return;
+    const objectStyle = getComputedStyle(el);
+    const imageStyle = getComputedStyle(img);
+    el.style.setProperty('--clicked-object-transform', objectStyle.transform);
+    el.style.setProperty('--clicked-object-translate', objectStyle.translate);
+    el.style.setProperty('--clicked-image-transform', imageStyle.transform);
+  }
+
+  document.addEventListener('pointerdown', event => {
+    const el = event.target.closest?.('.objects-view .floating-object');
+    if (!el || el.classList.contains('is-collected')) return;
+    capture(el);
+    capturedOnPointerDown = el;
+  }, true);
+
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const el = event.target.closest?.('.objects-view .floating-object');
+    if (!el || el.classList.contains('is-collected')) return;
+    capture(el);
+    capturedOnPointerDown = el;
+  }, true);
+
+  document.addEventListener('click', event => {
+    const el = event.target.closest?.('.objects-view .floating-object');
+    if (!el) return;
+    if (!el.classList.contains('is-collected') && capturedOnPointerDown !== el) capture(el);
+    requestAnimationFrame(() => { capturedOnPointerDown = null; });
+  }, true);
+
+  document.addEventListener('pointercancel', () => {
+    capturedOnPointerDown = null;
+  }, true);
+})();
